@@ -746,7 +746,7 @@ function renderRules() {
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
     <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li>
-    <li>PMS Retail Calibration, KA &amp; KL mid-year review: roster and eligibility. AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
+    <li><b>Eligibility:</b> active employees who joined on or before 31 Jul 2026, part-timers included (the calibration sheet's own Eligible column is not used).</li><li>PMS Retail Calibration, KA &amp; KL mid-year review: roster. AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
     ${weights}${sales}${conv}${abvupt}${audit}${shrink}${attr}${final}${sources}`;

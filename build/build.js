@@ -7,6 +7,7 @@ const SRC = {
   targets: DL + 'Targets.xlsx',
   conv: DL + 'conversion-data (1).csv',
 };
+const ELIG_DOJ_CUTOFF = '2026-07-31';
 const MONTHS = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
 const MLAB = { '2026-04': 'Apr', '2026-05': 'May', '2026-06': 'Jun', '2026-07': 'Jul', '2026-08': 'Aug', '2026-09': 'Sep' };
 const here = p => path.join(__dirname, p);
@@ -118,7 +119,9 @@ const people = [];
         id, role, name: String(g(r, 'Names') || '').trim(), desig: g(r, 'Designation'), grade: g(r, 'Group'),
         outlet, gender: g(r, 'Gender'), doj: xdate(g(r, 'DOJ')), conf: String(g(r, 'Confirmation') || '').trim(),
         state: g(r, 'State'), status: g(r, 'Working Status'),
-        eligible: /^eligible$/i.test(String(g(r, 'Eligible for  review') || '').trim()),
+        // eligibility rule agreed with HR: active and joined on/before 31 Jul 2026 (the sheet's own column is kept for reference only)
+        eligible: xdate(g(r, 'DOJ')) <= ELIG_DOJ_CUTOFF && /^active$/i.test(String(g(r, 'Working Status') || '').trim()),
+        sheetEligible: /^eligible$/i.test(String(g(r, 'Eligible for  review') || '').trim()),
         cm: g(r, 'Curr.Clustermanager') || S(outlet).cm || '', am: g(r, 'Curr.Areamanager') || S(outlet).rm || '',
         sales: role === 'SSA' ? sales : undefined,
       });
