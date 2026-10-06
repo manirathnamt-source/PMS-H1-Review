@@ -366,11 +366,11 @@ function renderStores() {
 }
 function monthTable(s) {
   const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
-  return `<div class="tbl-wrap"><table><thead><tr><th>Month</th><th class="num">Store sales</th><th class="num">E-com (excl.)</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
-  ${s.months.map(x => `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.netI)}</td><td class="num muted">${fmtL((x.sales || 0) - (x.netI || 0))}</td><td class="num">${fmtL(x.target)}</td><td class="num">${x.target ? fmtP((x.netI || 0) / x.target * 100, 0) : '–'}</td>
+  return `<div class="tbl-wrap"><table><thead><tr><th>Month</th><th class="num">Store sales</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
+  ${s.months.map(x => `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${x.target ? fmtP((x.netI || 0) / x.target * 100, 0) : '–'}</td>
   <td class="num bl">${fmtN(x.wi)}</td><td class="num">${fmtN(x.cBills)}</td><td class="num">${x.wi ? fmtP(x.cBills / x.wi * 100) : '–'}</td><td class="num">${x.cvT ? fmtP(x.cvT * 100, 0) : '–'}</td>
   <td class="num bl">${x.billsI ? '₹' + fmtN(x.netI / x.billsI) : '–'}</td><td class="num">${x.billsI ? fmtN(x.qtyI / x.billsI, 2) : '–'}</td></tr>`).join('')}
-  <tr><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num muted"><b>${fmtL(s.ecom)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b></td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b></td><td class="num bl"><b>${s.abv ? '₹' + fmtN(s.abv) : '–'}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
+  <tr><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b></td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b></td><td class="num bl"><b>${s.abv ? '₹' + fmtN(s.abv) : '–'}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
   </tbody></table></div>`;
 }
 function opsCard(s) {
