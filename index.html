@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>H1 PMS Review</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-ink: #fff;
+  --r1: #e34948; --r2: #f0a3a2; --r3: #86b6ef; --r4: #2a78d6;
+  --r1-bg: #fbe4e4; --r2-bg: #fdf0ef; --r3-bg: #e6f0fc; --r4-bg: #cde2fb;
+  --warn: #fab219; --good: #006300; --bad: #b42323;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5;
+    --r1: #e66767; --r2: #9a4a49; --r3: #256abf; --r4: #3987e5;
+    --r1-bg: #3a1c1c; --r2-bg: #2e2120; --r3-bg: #1a2a3d; --r4-bg: #1c3557;
+    --good: #0ca30c; --bad: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5;
+  --r1: #e66767; --r2: #9a4a49; --r3: #256abf; --r4: #3987e5;
+  --r1-bg: #3a1c1c; --r2-bg: #2e2120; --r3-bg: #1a2a3d; --r4-bg: #1c3557;
+  --good: #0ca30c; --bad: #e66767;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 20px 16px 60px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 14px; }
+h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); font-size: 13px; }
+.spacer { flex: 1; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--grid); margin-bottom: 14px; }
+.tab { background: none; border: 0; padding: 9px 14px; cursor: pointer; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.filters select, .filters input[type=search] { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+.filters input[type=search] { flex: 1 1 200px; max-width: 320px; }
+.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 13px; }
+.btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.tile .k { color: var(--ink-2); font-size: 12px; }
+.tile .v { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.tile .n { color: var(--muted); font-size: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.card h2 { font-size: 14px; margin: 0 0 10px; }
+.dist { display: flex; gap: 2px; height: 26px; border-radius: 4px; overflow: hidden; }
+.dist div { min-width: 2px; position: relative; cursor: default; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--surface-2); font-weight: 600; color: var(--ink-2); font-size: 12px; cursor: pointer; user-select: none; z-index: 1; }
+th.grp { cursor: default; text-align: center; border-left: 1px solid var(--grid); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.bl, th.bl { border-left: 1px solid var(--grid); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--surface-2); }
+tr.inel td { color: var(--muted); }
+.chip { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 11px; font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.chip.r0, .chip.r1 { background: var(--r1-bg); box-shadow: inset 0 0 0 1.5px var(--r1); }
+.chip.r2 { background: var(--r2-bg); box-shadow: inset 0 0 0 1.5px var(--r2); }
+.chip.r3 { background: var(--r3-bg); box-shadow: inset 0 0 0 1.5px var(--r3); }
+.chip.r4 { background: var(--r4-bg); box-shadow: inset 0 0 0 1.5px var(--r4); }
+.chip.pend { color: var(--muted); box-shadow: inset 0 0 0 1px var(--axis); font-weight: 500; }
+.flag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--ink-2); margin-right: 4px; border: 1px solid var(--border); }
+.flag.w::before { content: "⚠ "; color: var(--warn); }
+.muted { color: var(--muted); }
+.good { color: var(--good); } .bad { color: var(--bad); }
+.hidden { display: none !important; }
+/* drawer */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--page); z-index: 21; overflow-y: auto; padding: 18px 16px 40px; border-left: 1px solid var(--border); }
+.drawer h3 { margin: 0 0 2px; font-size: 18px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px; font-size: 13px; margin: 12px 0; }
+.kv b { display: block; color: var(--muted); font-weight: 500; font-size: 11px; }
+/* lock */
+.lock { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.lock form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: min(380px, 100%); }
+.lock input { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--page); margin: 12px 0; }
+.err { color: var(--bad); font-size: 13px; min-height: 18px; }
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); font-size: 12px; padding: 5px 8px; border-radius: 6px; z-index: 30; display: none; white-space: nowrap; }
+.rules table { font-size: 13px; }
+.rules td, .rules th { white-space: normal; }
+@media (max-width: 640px) { .tile .v { font-size: 20px; } h1 { font-size: 17px; } }
+</style>
+</head>
+<body>
+<div id="lock" class="lock">
+  <form id="lockForm">
+    <h1>H1 PMS Review · FY 2026-27</h1>
+    <div class="sub">Confidential: HR, Regional Managers and Cluster Managers only.</div>
+    <input id="pass" type="password" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode" autofocus>
+    <div class="err" id="lockErr"></div>
+    <button class="btn primary" type="submit" style="width:100%">Open dashboard</button>
+  </form>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header>
+    <h1>H1 PMS Review · FY 2026-27</h1>
+    <span class="sub" id="period"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="exportBtn">Export CSV</button>
+    <button class="btn" id="themeBtn" aria-label="Toggle theme">◐</button>
+    <button class="btn" id="logoutBtn">Lock</button>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <div class="filters" id="filters">
+    <select id="fState" aria-label="State"></select>
+    <select id="fRm" aria-label="Regional Manager"></select>
+    <select id="fCm" aria-label="Cluster Manager"></select>
+    <select id="fRating" aria-label="Final rating"></select>
+    <input id="fq" type="search" placeholder="Search name, emp ID or store">
+    <label class="chk"><input type="checkbox" id="fElig" checked> Eligible only</label>
+  </div>
+  <section id="view"></section>
+</div>
+
+<div id="tip"></div>
+<div id="drawerHost"></div>
+
+<script>
+'use strict';
+/* ---------- rating rules (from Retail KPI FY 2025-26 docs + KA/KL calibration sheet) ---------- */
+const WEIGHTS = {
+  SM:  { sales: .30, conv: .30, audit: .20, shrink: .10, attr: .10 },
+  ASM: { sales: .30, conv: .40, audit: .20, shrink: .10 },
+  SSA: { sales: .20, abv: .25, upt: .25, audit: .20, shrink: .10 },
+};
+const KPI_LABEL = { sales: 'Sales vs Target', conv: 'Conversion', abv: 'ABV (indiv. vs store)', upt: 'UPT (indiv. vs store)', audit: 'Ops Scorecard', shrink: 'Shrinkage', attr: 'Attrition' };
+const KPI_SHORT = { sales: 'Sales', conv: 'Conv', abv: 'ABV', upt: 'UPT', audit: 'Audit', shrink: 'Shrink', attr: 'Attr' };
+// achievement %: Below 70 =1 · 70.1–90 =2 · 90.1–100 =3 · above 100 =4
+const rateAch = p => p == null ? null : p <= 70 ? 1 : p <= 90 ? 2 : p <= 100 ? 3 : 4;
+// audit: below 80 =1 · 80–90 =2 · 90–94.9 =3 · 95+ =4
+const rateAudit = p => p == null ? null : p < 80 ? 1 : p < 90 ? 2 : p < 95 ? 3 : 4;
+// shrinkage %: above 0.125 =1 · 0.076–0.125 =2 · 0.055–0.075 =3 · below 0.055 =4
+const rateShrink = p => p == null ? null : p > 0.125 ? 1 : p > 0.075 ? 2 : p >= 0.055 ? 3 : 4;
+// attrition (people left in H1): 4+ =0 · 3 =1 · 2 =2 · 1 =3 · 0 =4
+const rateAttr = n => n == null ? null : n >= 4 ? 0 : 4 - n;
+const finalOf = s => s == null ? null : Math.min(4, Math.max(1, Math.round(+s.toFixed(4))));   // weighted score → 1–4, half rounds up
+const MIN_BILLS = 50;  // below this, individual ABV/UPT is flagged as a thin sample
+
+/* ---------- state ---------- */
+let D = null, PEOPLE = [], STORES = {};
+const UI = { tab: 'SM', sort: null, dir: 1 };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tc = s => String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).trim();
+const fmtL = v => v == null ? '–' : '₹' + (v / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' L';
+const fmtP = (v, d = 1) => v == null || !isFinite(v) ? '–' : v.toFixed(d) + '%';
+const fmtN = (v, d = 0) => v == null || !isFinite(v) ? '–' : v.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d });
+const chip = (r, title = '') => r == null ? `<span class="chip pend" title="Pending data">–</span>` : `<span class="chip r${r}" title="${esc(title)}">${r}</span>`;
+const store = {
+  get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+  del(k) { try { sessionStorage.removeItem(k); } catch {} },
+};
+
+/* ---------- decrypt ---------- */
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decrypt(pass) {
+  const env = await (await fetch('data.enc', { cache: 'no-store' })).json();
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(env.salt), iterations: env.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(env.iv) }, key, b64(env.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function unlock(pass) {
+  try { D = await decrypt(pass); } catch { return false; }
+  store.set('h1pass', pass);
+  compute(); initUI(); $('#lock').classList.add('hidden'); $('#app').classList.remove('hidden');
+  return true;
+}
+$('#lockForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('#lockErr').textContent = 'Checking…';
+  if (!(await unlock($('#pass').value.trim()))) $('#lockErr').textContent = 'Wrong passcode.';
+});
+$('#logoutBtn').onclick = () => { store.del('h1pass'); location.reload(); };
+(async () => { const p = store.get('h1pass'); if (p && !(await unlock(p))) store.del('h1pass'); })();
+
+/* ---------- calculations ---------- */
+function storeH1(k) {
+  if (STORES[k]) return STORES[k];
+  const s = D.stores[k] || { name: k, m: {} };
+  const ms = D.months.map(m => ({ m, ...(s.m[m] || {}) }));
+  const tm = ms.filter(x => x.target > 0);                         // months with a sales target
+  const sales = tm.reduce((a, x) => a + (x.sales || 0), 0), target = tm.reduce((a, x) => a + x.target, 0);
+  const cm = ms.filter(x => x.wiT > 0 && x.cvT > 0 && x.wi > 0);   // months with a conversion target and walk-ins
+  const wi = cm.reduce((a, x) => a + x.wi, 0), cb = cm.reduce((a, x) => a + (x.cBills || 0), 0);
+  const tB = cm.reduce((a, x) => a + x.wiT * x.cvT, 0), tW = cm.reduce((a, x) => a + x.wiT, 0);
+  const conv = wi ? cb / wi * 100 : null, convT = tW ? tB / tW * 100 : null;
+  const netI = ms.reduce((a, x) => a + (x.netI || 0), 0), billsI = ms.reduce((a, x) => a + (x.billsI || 0), 0), qtyI = ms.reduce((a, x) => a + (x.qtyI || 0), 0);
+  const inp = s.inp || {};
+  const audit = inp.audit == null ? null : (inp.audit <= 1.5 ? inp.audit * 100 : inp.audit);
+  const r = {
+    key: k, name: s.name, code: s.code || '', rm: tc(s.rm), cm: tc(s.cm), state: s.state || '', months: ms,
+    hasData: ms.some(x => x.sales), sales, target, salesPct: target ? sales / target * 100 : null, salesMonths: tm.length,
+    conv, convT, convPct: conv != null && convT ? conv / convT * 100 : null, convMonths: cm.length,
+    abv: billsI ? netI / billsI : null, upt: billsI ? qtyI / billsI : null, billsI,
+    audit, shrink: inp.shrink ?? null, left: inp.left ?? null,
+  };
+  r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(r.shrink), attr: rateAttr(r.left) };
+  return STORES[k] = r;
+}
+function compute() {
+  STORES = {};
+  PEOPLE = D.people.map(p => {
+    const st = storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
+    rt.sales = st.rt.sales; ach.sales = st.salesPct;
+    if (w.conv) { rt.conv = st.rt.conv; ach.conv = st.convPct; }
+    rt.audit = st.rt.audit; ach.audit = st.audit;
+    rt.shrink = st.rt.shrink; ach.shrink = st.shrink;
+    if (w.attr) { rt.attr = st.rt.attr; ach.attr = st.left; }
+    let ind = null;
+    if (p.role === 'SSA') {
+      // individual ABV/UPT vs the store benchmark, bill-weighted across every store the person billed in
+      let net = 0, qty = 0, bills = 0, bAbv = 0, bUpt = 0;
+      const per = Object.entries(p.sales || {}).map(([o, v]) => {
+        const so = storeH1(o); net += v.net; qty += v.qty; bills += v.bills;
+        if (so.abv) { bAbv += v.bills * so.abv; bUpt += v.bills * so.upt; }
+        return { o, ...v, sAbv: so.abv, sUpt: so.upt };
+      }).sort((a, b) => b.net - a.net);
+      ind = { net, qty, bills, abv: bills ? net / bills : null, upt: bills ? qty / bills : null, sAbv: bills ? bAbv / bills : null, sUpt: bills ? bUpt / bills : null, per };
+      ach.abv = ind.abv && ind.sAbv ? ind.abv / ind.sAbv * 100 : null; rt.abv = rateAch(ach.abv);
+      ach.upt = ind.upt && ind.sUpt ? ind.upt / ind.sUpt * 100 : null; rt.upt = rateAch(ach.upt);
+      ind.contrib = st.sales ? net / st.sales * 100 : null;
+      if (!bills) flags.push('No billing in H1');
+      else if (bills < MIN_BILLS) flags.push(`Only ${bills} bills`);
+      if (per.length > 1) flags.push(`Billed in ${per.length} stores`);
+      if (bills && !per.some(x => x.o === p.outlet)) flags.push('No billing at listed outlet');
+    }
+    if (!st.hasData) flags.push('No store data');
+    let sc = 0, sw = 0;
+    for (const [k, wt] of Object.entries(w)) if (rt[k] != null) { sc += wt * rt[k]; sw += wt; }
+    const pending = Object.keys(w).filter(k => rt[k] == null);
+    const score = pending.length ? null : sc;
+    const prov = sw ? sc / sw : null;     // provisional: re-weighted over KPIs that have data
+    return { ...p, st, rt, ach, ind, flags, pending, score, prov, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
+  });
+}
+
+/* ---------- UI ---------- */
+const TABS = [['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['RULES', 'Rules & data']];
+function initUI() {
+  const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
+  $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Karnataka & Kerala · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  $('#tabs').innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === UI.tab}">${l}</button>`).join('');
+  $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; [...$('#tabs').children].forEach(x => x.setAttribute('aria-selected', x === b)); render(); };
+  const opts = (el, label, vals) => { el.innerHTML = `<option value="">${label}</option>` + [...new Set(vals)].filter(Boolean).sort().map(v => `<option>${esc(v)}</option>`).join(''); };
+  opts($('#fState'), 'All states', PEOPLE.map(p => p.state));
+  opts($('#fRm'), 'All RMs', PEOPLE.map(p => p.rmN));
+  opts($('#fCm'), 'All CMs', PEOPLE.map(p => p.cmN));
+  $('#fRating').innerHTML = '<option value="">All ratings</option>' + [4, 3, 2, 1].map(r => `<option value="${r}">Rating ${r}</option>`).join('') + '<option value="p">Pending only</option>';
+  ['#fState', '#fRm', '#fCm', '#fRating', '#fElig'].forEach(s => $(s).onchange = render);
+  $('#fq').oninput = render;
+  $('#exportBtn').onclick = exportCsv;
+  $('#themeBtn').onclick = () => { const d = document.documentElement, dark = d.dataset.theme ? d.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; d.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('h1theme', d.dataset.theme); } catch {} };
+  try { const t = localStorage.getItem('h1theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  render();
+}
+function filtered() {
+  const st = $('#fState').value, rm = $('#fRm').value, cm = $('#fCm').value, rt = $('#fRating').value, q = $('#fq').value.trim().toLowerCase(), el = $('#fElig').checked;
+  return PEOPLE.filter(p => (!st || p.state === st) && (!rm || p.rmN === rm) && (!cm || p.cmN === cm) && (!el || p.eligible)
+    && (!rt || (rt === 'p' ? p.final == null : (p.final ?? p.provFinal) === +rt))
+    && (!q || (p.name + ' ' + p.id + ' ' + p.outlet).toLowerCase().includes(q)));
+}
+function render() {
+  $('#filters').classList.toggle('hidden', UI.tab === 'RULES');
+  $('#fRating').classList.toggle('hidden', UI.tab === 'STORES'); $('#fElig').parentElement.classList.toggle('hidden', UI.tab === 'STORES');
+  if (UI.tab === 'RULES') return renderRules();
+  if (UI.tab === 'STORES') return renderStores();
+  renderPeople(UI.tab);
+}
+function distBar(list, label) {
+  const c = [0, 0, 0, 0, 0], n = list.length;
+  list.forEach(p => { const r = p.final ?? p.provFinal; if (r) c[r]++; else c[0]++; });
+  const seg = (r, k) => c[r] ? `<div style="flex:${c[r]};background:${r ? `var(--r${r})` : 'var(--grid)'}" data-tip="${k}: ${c[r]} (${(c[r] / n * 100).toFixed(0)}%)"></div>` : '';
+  return `<div class="card"><h2>${label}</h2><div class="dist">${seg(1, 'Rating 1')}${seg(2, 'Rating 2')}${seg(3, 'Rating 3')}${seg(4, 'Rating 4')}${seg(0, 'No rating')}</div>
+  <div class="legend">${[1, 2, 3, 4].map(r => `<span><i style="background:var(--r${r})"></i>Rating ${r}: <b>${c[r]}</b> (${n ? (c[r] / n * 100).toFixed(0) : 0}%)</span>`).join('')}${c[0] ? `<span><i style="background:var(--grid)"></i>No rating: <b>${c[0]}</b></span>` : ''}</div></div>`;
+}
+function sortRows(rows, getters) {
+  if (!UI.sort || !getters[UI.sort]) return rows;
+  const g = getters[UI.sort];
+  return rows.slice().sort((a, b) => { const x = g(a), y = g(b); if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * UI.dir; });
+}
+function bindSort(rerender) {
+  document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => { const s = th.dataset.s; UI.dir = UI.sort === s ? -UI.dir : (th.classList.contains('num') ? -1 : 1); UI.sort = s; rerender(); });
+}
+function renderPeople(role) {
+  const all = filtered().filter(p => p.role === role), w = WEIGHTS[role], ks = Object.keys(w);
+  const done = all.filter(p => p.final != null).length;
+  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+  const pendK = [...new Set(all.flatMap(p => p.pending))];
+  const tiles = `<div class="tiles">
+    <div class="tile"><div class="k">People in view</div><div class="v">${all.length}</div><div class="n">${all.filter(p => p.eligible).length} eligible for review</div></div>
+    <div class="tile"><div class="k">Fully rated</div><div class="v">${done}</div><div class="n">${all.length - done ? `${all.length - done} waiting on ${pendK.map(k => KPI_SHORT[k]).join(', ')}` : 'all KPIs available'}</div></div>
+    <div class="tile"><div class="k">Avg. ${done === all.length ? 'weighted score' : 'provisional score'}</div><div class="v">${fmtN(avg(all.map(p => p.score ?? p.prov).filter(v => v != null)), 2)}</div><div class="n">on a 1–4 scale</div></div>
+    ${ks.filter(k => ['sales', 'conv', 'abv', 'upt'].includes(k)).map(k => `<div class="tile"><div class="k">Median ${KPI_LABEL[k]}</div><div class="v">${fmtP(median(all.map(p => p.ach[k]).filter(v => v != null)), 0)}</div><div class="n">achievement</div></div>`).join('')}
+  </div>`;
+  const G = { name: p => p.name, id: p => +p.id || 0, outlet: p => p.outlet, cm: p => p.cmN, score: p => p.score ?? p.prov, final: p => p.final ?? p.provFinal };
+  ks.forEach(k => G[k] = p => p.ach[k]);
+  const rows = sortRows(all, G);
+  const kHead = ks.map(k => `<th class="num bl" data-s="${k}">${KPI_SHORT[k]} <span class="muted">${Math.round(w[k] * 100)}%</span></th>`).join('');
+  const val = (p, k) => k === 'audit' ? fmtP(p.ach[k], 1) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] == null ? '–' : p.ach[k] + ' left') : fmtP(p.ach[k], 0);
+  const body = rows.map(p => `<tr class="${p.eligible ? '' : 'inel'}" data-id="${esc(p.id)}">
+    <td>${esc(p.name)}<div class="muted" style="font-size:11px">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></td>
+    <td>${esc(tc(p.outlet))}<div class="muted" style="font-size:11px">${esc(p.cmN)}</div></td>
+    ${ks.map(k => `<td class="num bl">${val(p, k)} ${chip(p.rt[k])}</td>`).join('')}
+    <td class="num bl">${p.score != null ? fmtN(p.score, 2) : `<span class="muted" title="Provisional, re-weighted over available KPIs">${fmtN(p.prov, 2)}*</span>`}</td>
+    <td class="num">${p.final != null ? chip(p.final) : (p.provFinal ? `<span class="chip pend" title="Provisional">${p.provFinal}*</span>` : chip(null))}</td>
+    <td>${p.flags.map(f => `<span class="flag w">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+  $('#view').innerHTML = tiles + distBar(all, `Final rating distribution${done < all.length ? ' (provisional where marked *)' : ''}`) +
+    `<div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
+    ${done < all.length ? `<p class="muted" style="font-size:12px">* Provisional: ${pendK.map(k => KPI_LABEL[k]).join(', ')} not uploaded yet, so the score is re-weighted over the KPIs that have data. It becomes final once every KPI is in.</p>` : ''}`;
+  bindSort(() => renderPeople(role));
+  $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) openPerson(tr.dataset.id, role); };
+  bindTips();
+}
+function median(a) { if (!a.length) return null; a = a.slice().sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+function renderStores() {
+  const st = $('#fState').value, rm = $('#fRm').value, cm = $('#fCm').value, q = $('#fq').value.trim().toLowerCase();
+  const keys = [...new Set(PEOPLE.map(p => p.outlet))];
+  let list = keys.map(storeH1).map(s => ({ ...s, people: PEOPLE.filter(p => p.outlet === s.key) }))
+    .filter(s => (!st || s.people.some(p => p.state === st)) && (!rm || s.people.some(p => p.rmN === rm)) && (!cm || s.people.some(p => p.cmN === cm)) && (!q || (s.name + ' ' + s.code).toLowerCase().includes(q)));
+  const G = { name: s => s.name, sales: s => s.sales, target: s => s.target, salesPct: s => s.salesPct, conv: s => s.conv, convT: s => s.convT, convPct: s => s.convPct, abv: s => s.abv, upt: s => s.upt, hc: s => s.people.length };
+  list = sortRows(list, G);
+  const tS = list.reduce((a, s) => a + s.sales, 0), tT = list.reduce((a, s) => a + s.target, 0);
+  $('#view').innerHTML = `<div class="tiles">
+    <div class="tile"><div class="k">Stores</div><div class="v">${list.length}</div><div class="n">${list.filter(s => !s.hasData).length} without H1 sales</div></div>
+    <div class="tile"><div class="k">H1 sales</div><div class="v">${fmtL(tS)}</div><div class="n">vs target ${fmtL(tT)}</div></div>
+    <div class="tile"><div class="k">Achievement</div><div class="v">${fmtP(tT ? tS / tT * 100 : null, 1)}</div><div class="n">sales vs target, H1</div></div>
+    <div class="tile"><div class="k">Stores ≥ 100% sales</div><div class="v">${list.filter(s => s.salesPct > 100).length}</div><div class="n">rating 4 on sales</div></div>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr><th data-s="name">Store</th><th class="num bl" data-s="sales">H1 sales</th><th class="num" data-s="target">Target</th><th class="num" data-s="salesPct">Ach.</th><th class="num">Rt</th>
+  <th class="num bl" data-s="conv">Conv.</th><th class="num" data-s="convT">Target</th><th class="num" data-s="convPct">Ach.</th><th class="num">Rt</th>
+  <th class="num bl" data-s="abv">ABV</th><th class="num" data-s="upt">UPT</th><th class="num bl">Audit</th><th class="num">Shrink</th><th class="num">Left</th><th class="num bl" data-s="hc">Staff</th></tr></thead><tbody>
+  ${list.map(s => `<tr data-k="${esc(s.key)}"><td>${esc(tc(s.name))}<div class="muted" style="font-size:11px">${esc(s.code)} · ${esc(s.people[0]?.cmN || s.cm)}</div></td>
+    <td class="num bl">${fmtL(s.sales)}</td><td class="num">${fmtL(s.target)}</td><td class="num">${fmtP(s.salesPct, 1)}</td><td class="num">${chip(s.rt.sales)}</td>
+    <td class="num bl">${fmtP(s.conv, 1)}</td><td class="num">${fmtP(s.convT, 1)}</td><td class="num">${fmtP(s.convPct, 0)}</td><td class="num">${chip(s.rt.conv)}</td>
+    <td class="num bl">${s.abv ? '₹' + fmtN(s.abv) : '–'}</td><td class="num">${fmtN(s.upt, 2)}</td>
+    <td class="num bl">${chip(s.rt.audit, fmtP(s.audit))}</td><td class="num">${chip(s.rt.shrink, s.shrink ?? '')}</td><td class="num">${chip(s.rt.attr, s.left ?? '')}</td>
+    <td class="num bl">${s.people.length}</td></tr>`).join('')}</tbody></table></div>`;
+  bindSort(renderStores);
+  $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-k]'); if (tr) openStore(tr.dataset.k); };
+}
+function monthTable(s) {
+  const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
+  return `<div class="tbl-wrap"><table><thead><tr><th>Month</th><th class="num">Sales</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
+  ${s.months.map(x => `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.sales)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${x.target ? fmtP(x.sales / x.target * 100, 0) : '–'}</td>
+  <td class="num bl">${fmtN(x.wi)}</td><td class="num">${fmtN(x.cBills)}</td><td class="num">${x.wi ? fmtP(x.cBills / x.wi * 100) : '–'}</td><td class="num">${x.cvT ? fmtP(x.cvT * 100, 0) : '–'}</td>
+  <td class="num bl">${x.billsI ? '₹' + fmtN(x.netI / x.billsI) : '–'}</td><td class="num">${x.billsI ? fmtN(x.qtyI / x.billsI, 2) : '–'}</td></tr>`).join('')}
+  <tr><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b></td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b></td><td class="num bl"><b>${s.abv ? '₹' + fmtN(s.abv) : '–'}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
+  </tbody></table></div>`;
+}
+function drawer(html) {
+  $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div style="display:flex;justify-content:flex-end"><button class="btn" id="dClose">Close</button></div>${html}</aside>`;
+  const close = () => { $('#drawerHost').innerHTML = ''; document.removeEventListener('keydown', esc_); };
+  const esc_ = e => { if (e.key === 'Escape') close(); };
+  $('#dClose').onclick = close; $('.scrim').onclick = close; document.addEventListener('keydown', esc_);
+}
+function openPerson(id, role) {
+  const p = PEOPLE.find(x => x.id === id && x.role === role), w = WEIGHTS[p.role], s = p.st;
+  const basis = {
+    sales: `Store ${fmtL(s.sales)} vs target ${fmtL(s.target)} (${s.salesMonths} months)`,
+    conv: `Store ${fmtP(s.conv)} vs target ${fmtP(s.convT)} (${s.convMonths} months)`,
+    abv: p.ind ? `Individual ₹${fmtN(p.ind.abv)} vs store ₹${fmtN(p.ind.sAbv)}` : '',
+    upt: p.ind ? `Individual ${fmtN(p.ind.upt, 2)} vs store ${fmtN(p.ind.sUpt, 2)}` : '',
+    audit: s.audit == null ? 'Awaiting audit score' : `Store audit ${fmtP(s.audit)}`,
+    shrink: s.shrink == null ? 'Awaiting shrinkage' : `Store shrinkage ${s.shrink}%`,
+    attr: s.left == null ? 'Awaiting attrition' : `${s.left} people left in H1`,
+  };
+  const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k] + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
+  drawer(`<h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div>
+  <div class="kv"><div><b>Grade</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>Confirmation</b>${esc(p.conf || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag w">${esc(f)}</span>`).join('')}</p>` : ''}
+  <div class="card"><h2>KPI scorecard</h2><div class="tbl-wrap"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
+  ${Object.keys(w).map(k => `<tr><td>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
+  <tr><td colspan="4"><b>${p.score != null ? 'Final weighted score' : 'Provisional score (re-weighted over available KPIs)'}</b></td><td class="num">${p.final != null ? chip(p.final) : `<span class="chip pend">${p.provFinal ?? '–'}*</span>`}</td><td class="num"><b>${fmtN(p.score ?? p.prov, 2)}</b></td></tr>
+  </tbody></table></div></div>
+  ${p.ind ? `<div class="card"><h2>Individual billing, H1 · ${fmtL(p.ind.net)} · ${fmtN(p.ind.bills)} bills · ${fmtP(p.ind.contrib)} of store sales</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Store</th><th class="num">Sales</th><th class="num">Bills</th><th class="num">ABV</th><th class="num">Store ABV</th><th class="num">UPT</th><th class="num">Store UPT</th></tr></thead><tbody>
+  ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">₹${fmtN(x.bills ? x.net / x.bills : null)}</td><td class="num">₹${fmtN(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
+  </tbody></table></div></div>` : ''}
+  <div class="card"><h2>Store month by month · ${esc(tc(s.name))}</h2>${monthTable(s)}</div>`);
+}
+function openStore(k) {
+  const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k);
+  drawer(`<h3>${esc(tc(s.name))}</h3><div class="sub">${esc(s.code)} · ${esc(ppl[0]?.cmN || s.cm)} · ${esc(ppl[0]?.rmN || s.rm)}</div>
+  <div class="card" style="margin-top:12px"><h2>Month by month</h2>${monthTable(s)}</div>
+  <div class="card"><h2>Team (${ppl.length})</h2><div class="tbl-wrap"><table><thead><tr><th>Employee</th><th>Role</th><th class="num">Rating</th></tr></thead><tbody>
+  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td>${esc(p.name)} <span class="muted">${esc(p.id)}</span></td><td>${esc(p.desig)}</td><td class="num">${p.final != null ? chip(p.final) : `<span class="chip pend">${p.provFinal ?? '–'}*</span>`}</td></tr>`).join('')}
+  </tbody></table></div></div>`);
+}
+function renderRules() {
+  const band = '<tr><td>1</td><td>70% or below</td></tr><tr><td>2</td><td>70.1% – 90%</td></tr><tr><td>3</td><td>90.1% – 100%</td></tr><tr><td>4</td><td>Above 100%</td></tr>';
+  $('#view').innerHTML = `<div class="rules">
+  <div class="card"><h2>Weightage by role</h2><div class="tbl-wrap"><table><thead><tr><th>Role</th>${Object.keys(KPI_LABEL).map(k => `<th class="num">${KPI_LABEL[k]}</th>`).join('')}</tr></thead><tbody>
+  ${Object.entries(WEIGHTS).map(([r, w]) => `<tr><td>${{ SM: 'Store Manager', ASM: 'Asst. Store Manager', SSA: 'SA / SSA' }[r]}</td>${Object.keys(KPI_LABEL).map(k => `<td class="num">${w[k] ? Math.round(w[k] * 100) + '%' : '–'}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div></div>
+  <div class="card"><h2>Rating bands</h2><div class="tiles" style="margin:0">
+    <div><b>Sales, Conversion, ABV, UPT (achievement %)</b><table>${band}</table></div>
+    <div><b>Retail Ops Scorecard (audit %)</b><table><tr><td>1</td><td>Below 80%</td></tr><tr><td>2</td><td>80% – 89.9%</td></tr><tr><td>3</td><td>90% – 94.9%</td></tr><tr><td>4</td><td>95% and above</td></tr></table></div>
+    <div><b>Shrinkage %</b><table><tr><td>1</td><td>Above 0.125</td></tr><tr><td>2</td><td>0.076 – 0.125</td></tr><tr><td>3</td><td>0.055 – 0.075</td></tr><tr><td>4</td><td>Below 0.055</td></tr></table></div>
+    <div><b>Attrition (SM only, people left in H1)</b><table><tr><td>0</td><td>4 or more</td></tr><tr><td>1</td><td>3</td></tr><tr><td>2</td><td>2</td></tr><tr><td>3</td><td>1</td></tr><tr><td>4</td><td>Zero</td></tr></table></div>
+  </div></div>
+  <div class="card"><h2>How each KPI is measured (H1 = Apr–Sep 2026, cumulative)</h2><ul>
+    <li><b>Sales vs Target</b>: store's Item Net Amt (incl. store-fulfilled e-commerce) ÷ store target, summed over months that have a target. Applies to every role, including SA/SSA.</li>
+    <li><b>Conversion</b>: store bills ÷ walk-ins from the daily conversion report, compared with the target conversion (walk-in-target weighted CV%).</li>
+    <li><b>ABV / UPT (SA &amp; SSA)</b>: the person's own bills (by Emp ID in the salesman column) ÷ the store's ABV/UPT. If they billed in several stores, the store benchmark is weighted by their bills in each. E-commerce lines are excluded from both sides.</li>
+    <li><b>Audit, Shrinkage, Attrition</b>: store-level figures from the HR input file. Until it is uploaded these show “–” and the score is provisional (*).</li>
+    <li><b>Final rating</b>: weighted score rounded to the nearest whole rating (x.5 rounds up), between 1 and 4.</li>
+  </ul></div>
+  <div class="card"><h2>Data sources</h2><ul>
+    <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports)</li>
+    <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
+    <li>conversion-data.csv: daily walk-ins and bills per store</li>
+    <li>PMS Retail Calibration, KA &amp; KL mid-year review: roster and eligibility</li>
+  </ul></div></div>`;
+}
+function exportCsv() {
+  const role = ['SM', 'ASM', 'SSA'].includes(UI.tab) ? UI.tab : null;
+  const list = role ? filtered().filter(p => p.role === role) : filtered();
+  const ks = ['sales', 'conv', 'abv', 'upt', 'audit', 'shrink', 'attr'];
+  const head = ['Emp ID', 'Name', 'Designation', 'Outlet', 'State', 'CM', 'RM', 'Eligible', ...ks.flatMap(k => [KPI_LABEL[k] + ' Ach', KPI_LABEL[k] + ' Rating']), 'Weighted Score', 'Final Rating', 'Status', 'Flags'];
+  const q = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = list.map(p => [p.id, p.name, p.desig, p.outlet, p.state, p.cmN, p.rmN, p.eligible ? 'Yes' : 'No',
+    ...ks.flatMap(k => WEIGHTS[p.role][k] ? [p.ach[k] == null ? '' : (+p.ach[k]).toFixed(k === 'shrink' ? 3 : 1), p.rt[k] ?? ''] : ['', '']),
+    (p.score ?? p.prov)?.toFixed(2) ?? '', p.final ?? p.provFinal ?? '', p.final != null ? 'Final' : 'Provisional', p.flags.join('; ')]);
+  const blob = new Blob(['﻿' + [head, ...rows].map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `H1_PMS_${role || 'All'}_${new Date().toISOString().slice(0, 10)}.csv` });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function bindTips() {
+  const tip = $('#tip');
+  document.querySelectorAll('[data-tip]').forEach(el => {
+    el.onmousemove = e => { tip.textContent = el.dataset.tip; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; };
+    el.onmouseleave = () => tip.style.display = 'none';
+  });
+}
+</script>
+</body>
+</html>
