@@ -8,133 +8,244 @@
 <style>
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
-  --accent: #2a78d6; --accent-ink: #fff;
-  --r1: #e34948; --r2: #f0a3a2; --r3: #86b6ef; --r4: #2a78d6;
-  --r1-bg: #fbe4e4; --r2-bg: #fdf0ef; --r3-bg: #e6f0fc; --r4-bg: #cde2fb;
-  --warn: #fab219; --good: #006300; --bad: #b42323;
+  --page: #f3f4f9; --surface: #ffffff; --surface-2: #f6f6fa; --surface-3: #eceef6;
+  --ink: #12121a; --ink-2: #4f4f5c; --muted: #8a8a96;
+  --grid: #e4e5ee; --axis: #c9cad6; --border: rgba(20,20,60,0.08); --shadow: 0 1px 2px rgba(20,20,60,.05), 0 4px 16px rgba(20,20,60,.05);
+  --hero-a: #1d1748; --hero-b: #3b2d97; --hero-c: #2a78d6; --gold: #eda100;
+  /* rating scale: red → amber → blue → green (validated light + dark) */
+  --r1: #e34948; --r2: #eda100; --r3: #2a78d6; --r4: #1baf7a;
+  /* KPI identity colours (categorical, fixed order) */
+  --k-sales: #2a78d6; --k-conv: #eb6834; --k-abv: #1baf7a; --k-upt: #eda100; --k-audit: #e87ba4; --k-shrink: #008300; --k-attr: #4a3aa7;
+  --good: #0a7d3c; --bad: #c22f2f; --warn: #b67a00;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
-    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --accent: #3987e5;
-    --r1: #e66767; --r2: #9a4a49; --r3: #256abf; --r4: #3987e5;
-    --r1-bg: #3a1c1c; --r2-bg: #2e2120; --r3-bg: #1a2a3d; --r4-bg: #1c3557;
-    --good: #0ca30c; --bad: #e66767;
+    --page: #0c0c11; --surface: #17171d; --surface-2: #1f1f27; --surface-3: #26262f;
+    --ink: #f4f4f8; --ink-2: #c3c3cf; --muted: #8a8a96;
+    --grid: #2b2b35; --axis: #3a3a46; --border: rgba(255,255,255,0.08); --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --hero-a: #140f36; --hero-b: #2d2275; --hero-c: #1c5cab;
+    --r1: #d03b3b; --r2: #c98500; --r3: #3987e5; --r4: #199e70;
+    --k-sales: #3987e5; --k-conv: #d95926; --k-abv: #199e70; --k-upt: #c98500; --k-audit: #d55181; --k-shrink: #008300; --k-attr: #9085e9;
+    --good: #2fbf6a; --bad: #e66767; --warn: #e0a42a;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
-  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-  --accent: #3987e5;
-  --r1: #e66767; --r2: #9a4a49; --r3: #256abf; --r4: #3987e5;
-  --r1-bg: #3a1c1c; --r2-bg: #2e2120; --r3-bg: #1a2a3d; --r4-bg: #1c3557;
-  --good: #0ca30c; --bad: #e66767;
+  --page: #0c0c11; --surface: #17171d; --surface-2: #1f1f27; --surface-3: #26262f;
+  --ink: #f4f4f8; --ink-2: #c3c3cf; --muted: #8a8a96;
+  --grid: #2b2b35; --axis: #3a3a46; --border: rgba(255,255,255,0.08); --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --hero-a: #140f36; --hero-b: #2d2275; --hero-c: #1c5cab;
+  --r1: #d03b3b; --r2: #c98500; --r3: #3987e5; --r4: #199e70;
+  --k-sales: #3987e5; --k-conv: #d95926; --k-abv: #199e70; --k-upt: #c98500; --k-audit: #d55181; --k-shrink: #008300; --k-attr: #9085e9;
+  --good: #2fbf6a; --bad: #e66767; --warn: #e0a42a;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 button, input, select { font: inherit; color: inherit; }
-.wrap { max-width: 1400px; margin: 0 auto; padding: 20px 16px 60px; }
-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 14px; }
-h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
-.sub { color: var(--ink-2); font-size: 13px; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 16px; }
+
+/* hero */
+.hero { background: linear-gradient(120deg, var(--hero-a) 0%, var(--hero-b) 52%, var(--hero-c) 100%); color: #fff; position: relative; overflow: hidden; }
+.hero::after { content: ""; position: absolute; inset: auto -10% -60% 45%; height: 220px; background: radial-gradient(closest-side, rgba(237,161,0,.28), transparent); pointer-events: none; }
+.hero .wrap { padding-top: 18px; position: relative; z-index: 1; }
+.hero-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #f7c548, #eda100); display: grid; place-items: center; color: #1d1748; font-weight: 800; font-size: 15px; box-shadow: 0 4px 14px rgba(237,161,0,.35); }
+.hero h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+.hero .sub { color: rgba(255,255,255,.75); font-size: 12.5px; }
 .spacer { flex: 1; }
-.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--grid); margin-bottom: 14px; }
-.tab { background: none; border: 0; padding: 9px 14px; cursor: pointer; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; }
-.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
-.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
-.filters select, .filters input[type=search] { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+.hbtn { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); color: #fff; border-radius: 10px; padding: 7px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.hbtn:hover { background: rgba(255,255,255,.22); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 16px 0 14px; }
+.tab { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.85); padding: 7px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+.tab:hover { background: rgba(255,255,255,.16); }
+.tab[aria-selected="true"] { background: #fff; color: #1d1748; border-color: #fff; font-weight: 600; }
+.tab .cnt { font-size: 11px; padding: 0 6px; border-radius: 8px; background: rgba(255,255,255,.18); }
+.tab[aria-selected="true"] .cnt { background: #ece9ff; color: #3b2d97; }
+
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+.filters select, .filters input[type=search] { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; min-width: 0; box-shadow: var(--shadow); }
 .filters input[type=search] { flex: 1 1 200px; max-width: 320px; }
-.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 13px; }
-.btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
-.btn:hover { background: var(--surface-2); }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
-.tile .k { color: var(--ink-2); font-size: 12px; }
-.tile .v { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 13px; background: var(--surface); padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); }
+
+/* tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+.tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, var(--k-sales)); }
+.tile .top { display: flex; align-items: center; gap: 10px; }
+.ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--c, var(--k-sales)) 15%, transparent); color: var(--c, var(--k-sales)); flex: none; }
+.ico svg { width: 18px; height: 18px; }
+.tile .k { color: var(--ink-2); font-size: 12.5px; }
+.tile .v { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -0.02em; }
 .tile .n { color: var(--muted); font-size: 12px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
-.card h2 { font-size: 14px; margin: 0 0 10px; }
-.dist { display: flex; gap: 2px; height: 26px; border-radius: 4px; overflow: hidden; }
-.dist div { min-width: 2px; position: relative; cursor: default; }
-.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-.tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.meter { height: 6px; background: var(--surface-3); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 3px; background: var(--c); }
+
+/* cards */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 14px; margin-bottom: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
+.grid2 > .card { margin-bottom: 0; }
+.card h2 { font-size: 15px; margin: 0 0 4px; }
+.card .hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+
+/* rating cards */
+.rcards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.rcard { border-radius: 14px; padding: 12px; background: color-mix(in srgb, var(--rc) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--rc) 35%, transparent); }
+.rcard .rn { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+.rcard .rv { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.rcard .rp { font-size: 12px; color: var(--muted); }
+
+/* stacked bars */
+.sbar { display: flex; gap: 2px; height: 22px; border-radius: 6px; overflow: hidden; background: var(--surface-3); }
+.sbar div { display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 600; min-width: 2px; }
+.srow { display: grid; grid-template-columns: minmax(90px, 170px) 1fr 60px; gap: 10px; align-items: center; padding: 6px 0; }
+.srow .lab { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow .tot { text-align: right; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* store bar chart */
+.hchart { position: relative; }
+.hrow { display: grid; grid-template-columns: minmax(110px, 210px) 1fr 64px; gap: 10px; align-items: center; height: 24px; cursor: pointer; }
+.hrow:hover .track { background: var(--surface-3); }
+.hrow .lab { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track { position: relative; height: 16px; border-radius: 4px; }
+.track .bar { position: absolute; left: 0; top: 2px; bottom: 2px; border-radius: 0 4px 4px 0; }
+.track .ref { position: absolute; top: -3px; bottom: -3px; border-left: 1.5px dashed var(--axis); }
+.track .ref.main { border-left: 2px solid var(--ink-2); opacity: .55; }
+.hrow .val { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.axisrow { display: grid; grid-template-columns: minmax(110px, 210px) 1fr 64px; gap: 10px; font-size: 11px; color: var(--muted); }
+.axisrow .ticks { position: relative; height: 16px; }
+.axisrow .ticks span { position: absolute; transform: translateX(-50%); }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 7px 10px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; vertical-align: middle; }
 th { position: sticky; top: 0; background: var(--surface-2); font-weight: 600; color: var(--ink-2); font-size: 12px; cursor: pointer; user-select: none; z-index: 1; }
-th.grp { cursor: default; text-align: center; border-left: 1px solid var(--grid); }
+th .kdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.bl, th.bl { border-left: 1px solid var(--grid); }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--surface-2); }
-tr.inel td { color: var(--muted); }
-.chip { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 11px; font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink); }
-.chip.r0, .chip.r1 { background: var(--r1-bg); box-shadow: inset 0 0 0 1.5px var(--r1); }
-.chip.r2 { background: var(--r2-bg); box-shadow: inset 0 0 0 1.5px var(--r2); }
-.chip.r3 { background: var(--r3-bg); box-shadow: inset 0 0 0 1.5px var(--r3); }
-.chip.r4 { background: var(--r4-bg); box-shadow: inset 0 0 0 1.5px var(--r4); }
-.chip.pend { color: var(--muted); box-shadow: inset 0 0 0 1px var(--axis); font-weight: 500; }
-.flag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--ink-2); margin-right: 4px; border: 1px solid var(--border); }
-.flag.w::before { content: "⚠ "; color: var(--warn); }
-.muted { color: var(--muted); }
-.good { color: var(--good); } .bad { color: var(--bad); }
-.hidden { display: none !important; }
+tr.inel td { opacity: .55; }
+.who { display: flex; align-items: center; gap: 10px; }
+.av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; flex: none; background: var(--avc, var(--hero-b)); }
+.who .nm { font-weight: 600; }
+.who .meta, .cellsub { color: var(--muted); font-size: 11.5px; }
+.ach { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 64px; }
+.ach .row { display: inline-flex; gap: 6px; align-items: center; }
+.ach .db { width: 64px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.ach .db i { display: block; height: 100%; background: var(--rc, var(--axis)); border-radius: 2px; }
+.chip { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 11px; font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; color: #fff; background: var(--rc); }
+.chip.r0, .chip.r1 { --rc: var(--r1); } .chip.r2 { --rc: var(--r2); color: #1a1300; } .chip.r3 { --rc: var(--r3); } .chip.r4 { --rc: var(--r4); }
+.chip.pend { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--axis); font-weight: 500; }
+.chip.prov { background: color-mix(in srgb, var(--rc) 18%, var(--surface)); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--rc); }
+.chip.lg { min-width: 34px; height: 30px; border-radius: 15px; font-size: 15px; }
+.flag { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 12%, var(--surface)); color: var(--ink-2); margin: 1px 4px 1px 0; border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
+.flag::before { content: "⚠ "; color: var(--warn); }
+.flag.info { background: var(--surface-2); border-color: var(--border); }
+.flag.info::before { content: "ℹ "; color: var(--k-sales); }
+.note { font-size: 12px; color: var(--muted); margin: 10px 2px; }
+
 /* drawer */
-.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--page); z-index: 21; overflow-y: auto; padding: 18px 16px 40px; border-left: 1px solid var(--border); }
-.drawer h3 { margin: 0 0 2px; font-size: 18px; }
-.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px; font-size: 13px; margin: 12px 0; }
+.scrim { position: fixed; inset: 0; background: rgba(10,10,30,.45); z-index: 20; backdrop-filter: blur(2px); }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(800px, 100%); background: var(--page); z-index: 21; overflow-y: auto; border-left: 1px solid var(--border); }
+.dhead { background: linear-gradient(120deg, var(--hero-a), var(--hero-b) 60%, var(--hero-c)); color: #fff; padding: 18px 16px; display: flex; gap: 14px; align-items: center; }
+.dhead h3 { margin: 0; font-size: 19px; }
+.dhead .sub { color: rgba(255,255,255,.78); font-size: 12.5px; }
+.dbody { padding: 16px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.kv div { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 13px; }
 .kv b { display: block; color: var(--muted); font-weight: 500; font-size: 11px; }
+
+/* rules */
+.kpi-sec { border-top: 4px solid var(--kc); }
+.kpi-sec h2 { display: flex; align-items: center; gap: 10px; }
+.kpi-sec h2 .ico { --c: var(--kc); }
+.formula { background: color-mix(in srgb, var(--kc) 8%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--kc) 25%, transparent); border-radius: 12px; padding: 10px 14px; font-size: 13.5px; margin: 10px 0 14px; }
+.formula code { font: inherit; font-weight: 600; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 14px; align-items: start; }
+.result { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 13.5px; }
+.result .eq { font-variant-numeric: tabular-nums; }
+.scale { margin: 6px 0 4px; }
+.scale .segs { display: flex; gap: 2px; height: 26px; border-radius: 6px; overflow: hidden; position: relative; }
+.scale .segs div { display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; }
+.scale .segs div.r2 { color: #1a1300; }
+.scale .labs { position: relative; height: 16px; font-size: 10.5px; color: var(--muted); }
+.scale .labs span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.scale .mk { position: relative; height: 22px; }
+.scale .mk span { position: absolute; transform: translateX(-50%); font-size: 11.5px; font-weight: 700; white-space: nowrap; background: var(--ink); color: var(--page); padding: 1px 7px; border-radius: 6px; }
+.scale .mk span::after { content: ""; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--ink); border-bottom: 0; }
+.wbar { display: flex; gap: 2px; height: 28px; border-radius: 8px; overflow: hidden; }
+.wbar div { display: grid; place-items: center; color: #fff; font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.picker { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0; }
+.picker select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; box-shadow: var(--shadow); max-width: 100%; }
+ul.clean { margin: 6px 0 0; padding-left: 18px; } ul.clean li { margin: 4px 0; }
+
 /* lock */
-.lock { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
-.lock form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: min(380px, 100%); }
-.lock input { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--page); margin: 12px 0; }
-.err { color: var(--bad); font-size: 13px; min-height: 18px; }
-#tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); font-size: 12px; padding: 5px 8px; border-radius: 6px; z-index: 30; display: none; white-space: nowrap; }
-.rules table { font-size: 13px; }
-.rules td, .rules th { white-space: normal; }
-@media (max-width: 640px) { .tile .v { font-size: 20px; } h1 { font-size: 17px; } }
+.lock { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: linear-gradient(130deg, var(--hero-a), var(--hero-b) 55%, var(--hero-c)); }
+.lock form { background: var(--surface); border-radius: 20px; padding: 28px 24px; width: min(400px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.lock h1 { font-size: 20px; margin: 14px 0 4px; }
+.lock .sub { color: var(--ink-2); font-size: 13px; }
+.lock input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--axis); background: var(--page); margin: 16px 0 8px; }
+.err { color: var(--bad); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+.pbtn { width: 100%; background: linear-gradient(120deg, var(--hero-b), var(--hero-c)); color: #fff; border: 0; border-radius: 10px; padding: 10px; font-weight: 600; cursor: pointer; }
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); font-size: 12px; padding: 6px 9px; border-radius: 8px; z-index: 30; display: none; max-width: 280px; white-space: normal; box-shadow: var(--shadow); }
+footer { color: var(--muted); font-size: 12px; padding: 20px 0 40px; }
+@media (max-width: 720px) {
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 12px; }
+  .tab { white-space: nowrap; flex: none; padding: 6px 12px; }
+  .hero .wrap { padding-top: 14px; }
+  .rcards { grid-template-columns: repeat(2, 1fr); }
+  .tile .v { font-size: 22px; }
+  .hero h1 { font-size: 17px; }
+  .srow { grid-template-columns: 90px 1fr 44px; }
+  .hrow, .axisrow { grid-template-columns: 100px 1fr 52px; }
+}
 </style>
 </head>
 <body>
 <div id="lock" class="lock">
   <form id="lockForm">
+    <div class="logo">K</div>
     <h1>H1 PMS Review · FY 2026-27</h1>
     <div class="sub">Confidential: HR, Regional Managers and Cluster Managers only.</div>
     <input id="pass" type="password" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode" autofocus>
     <div class="err" id="lockErr"></div>
-    <button class="btn primary" type="submit" style="width:100%">Open dashboard</button>
+    <button class="pbtn" type="submit">Open dashboard</button>
   </form>
 </div>
 
-<div id="app" class="wrap hidden">
-  <header>
-    <h1>H1 PMS Review · FY 2026-27</h1>
-    <span class="sub" id="period"></span>
-    <span class="spacer"></span>
-    <button class="btn" id="exportBtn">Export CSV</button>
-    <button class="btn" id="themeBtn" aria-label="Toggle theme">◐</button>
-    <button class="btn" id="logoutBtn">Lock</button>
-  </header>
-  <nav class="tabs" role="tablist" id="tabs"></nav>
-  <div class="filters" id="filters">
-    <select id="fState" aria-label="State"></select>
-    <select id="fRm" aria-label="Regional Manager"></select>
-    <select id="fCm" aria-label="Cluster Manager"></select>
-    <select id="fRating" aria-label="Final rating"></select>
-    <input id="fq" type="search" placeholder="Search name, emp ID or store">
-    <label class="chk"><input type="checkbox" id="fElig" checked> Eligible only</label>
+<div id="app" class="hidden">
+  <div class="hero">
+    <div class="wrap">
+      <div class="hero-top">
+        <div class="brand"><div class="logo">K</div><div><h1>H1 Performance Review · FY 2026-27</h1><div class="sub" id="period"></div></div></div>
+        <span class="spacer"></span>
+        <button class="hbtn" id="exportBtn">⤓ Export CSV</button>
+        <button class="hbtn" id="themeBtn" aria-label="Toggle light or dark theme">◐</button>
+        <button class="hbtn" id="logoutBtn">Lock</button>
+      </div>
+      <nav class="tabs" role="tablist" id="tabs"></nav>
+    </div>
   </div>
-  <section id="view"></section>
+  <div class="wrap">
+    <div class="filters" id="filters">
+      <select id="fState" aria-label="State"></select>
+      <select id="fRm" aria-label="Regional Manager"></select>
+      <select id="fCm" aria-label="Cluster Manager"></select>
+      <select id="fRating" aria-label="Final rating"></select>
+      <input id="fq" type="search" placeholder="Search name, emp ID or store">
+      <label class="chk"><input type="checkbox" id="fElig" checked> Eligible only</label>
+    </div>
+    <section id="view"></section>
+    <footer id="foot"></footer>
+  </div>
 </div>
 
 <div id="tip"></div>
@@ -142,17 +253,19 @@ tr.inel td { color: var(--muted); }
 
 <script>
 'use strict';
-/* ---------- rating rules (from Retail KPI FY 2025-26 docs + KA/KL calibration sheet) ---------- */
+/* ---------- rating rules (Retail KPI FY 2025-26 docs + KA/KL calibration sheet) ---------- */
 const WEIGHTS = {
   SM:  { sales: .30, conv: .30, audit: .20, shrink: .10, attr: .10 },
   ASM: { sales: .30, conv: .40, audit: .20, shrink: .10 },
   SSA: { sales: .20, abv: .25, upt: .25, audit: .20, shrink: .10 },
 };
+const ROLE_NAME = { SM: 'Store Manager', ASM: 'Asst. Store Manager', SSA: 'SA / SSA' };
 const KPI_LABEL = { sales: 'Sales vs Target', conv: 'Conversion', abv: 'ABV (indiv. vs store)', upt: 'UPT (indiv. vs store)', audit: 'Ops Scorecard', shrink: 'Shrinkage', attr: 'Attrition' };
 const KPI_SHORT = { sales: 'Sales', conv: 'Conv', abv: 'ABV', upt: 'UPT', audit: 'Audit', shrink: 'Shrink', attr: 'Attr' };
-// achievement %: Below 70 =1 · 70.1–90 =2 · 90.1–100 =3 · above 100 =4
+const KPIS = Object.keys(KPI_LABEL);
+// achievement %: 70 or below =1 · 70.1–90 =2 · 90.1–100 =3 · above 100 =4
 const rateAch = p => p == null ? null : p <= 70 ? 1 : p <= 90 ? 2 : p <= 100 ? 3 : 4;
-// audit: below 80 =1 · 80–90 =2 · 90–94.9 =3 · 95+ =4
+// audit: below 80 =1 · 80–89.9 =2 · 90–94.9 =3 · 95+ =4
 const rateAudit = p => p == null ? null : p < 80 ? 1 : p < 90 ? 2 : p < 95 ? 3 : 4;
 // shrinkage %: above 0.125 =1 · 0.076–0.125 =2 · 0.055–0.075 =3 · below 0.055 =4
 const rateShrink = p => p == null ? null : p > 0.125 ? 1 : p > 0.075 ? 2 : p >= 0.055 ? 3 : 4;
@@ -161,21 +274,46 @@ const rateAttr = n => n == null ? null : n >= 4 ? 0 : 4 - n;
 const finalOf = s => s == null ? null : Math.min(4, Math.max(1, Math.round(+s.toFixed(4))));   // weighted score → 1–4, half rounds up
 const MIN_BILLS = 50;  // below this, individual ABV/UPT is flagged as a thin sample
 
-/* ---------- state ---------- */
+/* ---------- state + helpers ---------- */
 let D = null, PEOPLE = [], STORES = {};
-const UI = { tab: 'SM', sort: null, dir: 1 };
+const UI = { tab: 'OVERVIEW', sort: null, dir: 1, exStore: null };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const tc = s => String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).trim();
 const fmtL = v => v == null ? '–' : '₹' + (v / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' L';
 const fmtP = (v, d = 1) => v == null || !isFinite(v) ? '–' : v.toFixed(d) + '%';
 const fmtN = (v, d = 0) => v == null || !isFinite(v) ? '–' : v.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d });
-const chip = (r, title = '') => r == null ? `<span class="chip pend" title="Pending data">–</span>` : `<span class="chip r${r}" title="${esc(title)}">${r}</span>`;
-const store = {
+const fmtR = v => v == null || !isFinite(v) ? '–' : '₹' + fmtN(v);
+const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
+const chip = (r, cls = '') => r == null ? `<span class="chip pend" title="Pending data">–</span>` : `<span class="chip r${r} ${cls}">${r}</span>`;
+const ratingChip = p => p.newStore ? `<span class="chip pend" title="New store">New</span>` : p.final != null ? chip(p.final) : p.provFinal ? `<span class="chip r${p.provFinal} prov" title="Provisional">${p.provFinal}*</span>` : chip(null);
+const rOf = p => p.final ?? p.provFinal ?? null;
+const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+const sum = (a, f) => a.reduce((x, y) => x + (f(y) || 0), 0);
+const initials = n => String(n || '?').split(/\s+/).filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+const AVC = { SM: 'var(--hero-b)', ASM: 'var(--k-conv)', SSA: 'var(--k-abv)' };
+const ss = {
   get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
   del(k) { try { sessionStorage.removeItem(k); } catch {} },
 };
+const ICON = {
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.8.2 4.7 1.9 5.5 5.4"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.7L16.5 9.5"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6-4.5-4.2 6.1-.8z"/></svg>',
+  rupee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12M6 9h12M9 4c4 0 6 1.8 6 5s-2.5 5-6 5H7l8 7"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg>',
+  door: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M6 21V4h9l3 2v15"/><circle cx="13" cy="12.5" r=".8" fill="currentColor"/></svg>',
+  bag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 8h14l-1 13H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>',
+  clip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z"/></svg>',
+  exit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/></svg>',
+  store: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 9h16l-1.5-5h-13zM5 9v11h14V9M10 20v-6h4v6"/></svg>',
+  calc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>',
+};
+const KICON = { sales: 'rupee', conv: 'door', abv: 'bag', upt: 'layers', audit: 'clip', shrink: 'shield', attr: 'exit' };
+const KCOL = k => `var(--k-${k})`;
 
 /* ---------- decrypt ---------- */
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -188,7 +326,7 @@ async function decrypt(pass) {
 }
 async function unlock(pass) {
   try { D = await decrypt(pass); } catch { return false; }
-  store.set('h1pass', pass);
+  ss.set('h1pass', pass);
   compute(); initUI(); $('#lock').classList.add('hidden'); $('#app').classList.remove('hidden');
   return true;
 }
@@ -196,8 +334,9 @@ $('#lockForm').addEventListener('submit', async e => {
   e.preventDefault(); $('#lockErr').textContent = 'Checking…';
   if (!(await unlock($('#pass').value.trim()))) $('#lockErr').textContent = 'Wrong passcode.';
 });
-$('#logoutBtn').onclick = () => { store.del('h1pass'); location.reload(); };
-(async () => { const p = store.get('h1pass'); if (p && !(await unlock(p))) store.del('h1pass'); })();
+$('#logoutBtn').onclick = () => { ss.del('h1pass'); location.reload(); };
+try { const t = localStorage.getItem('h1theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+(async () => { const p = ss.get('h1pass'); if (p && !(await unlock(p))) ss.del('h1pass'); })();
 
 /* ---------- calculations ---------- */
 function storeH1(k) {
@@ -205,19 +344,19 @@ function storeH1(k) {
   const s = D.stores[k] || { name: k, m: {} };
   const ms = D.months.map(m => ({ m, ...(s.m[m] || {}) }));
   const tm = ms.filter(x => x.target > 0);                         // months with a sales target
-  const sales = tm.reduce((a, x) => a + (x.netI || 0), 0), ecom = tm.reduce((a, x) => a + (x.sales || 0) - (x.netI || 0), 0), target = tm.reduce((a, x) => a + x.target, 0);
+  const sales = sum(tm, x => x.netI), ecom = sum(tm, x => (x.sales || 0) - (x.netI || 0)), target = sum(tm, x => x.target);
   const cm = ms.filter(x => x.wiT > 0 && x.cvT > 0 && x.wi > 0);   // months with a conversion target and walk-ins
-  const wi = cm.reduce((a, x) => a + x.wi, 0), cb = cm.reduce((a, x) => a + (x.cBills || 0), 0);
-  const tB = cm.reduce((a, x) => a + x.wiT * x.cvT, 0), tW = cm.reduce((a, x) => a + x.wiT, 0);
+  const wi = sum(cm, x => x.wi), cb = sum(cm, x => x.cBills);
+  const tB = sum(cm, x => x.wiT * x.cvT), tW = sum(cm, x => x.wiT);
   const conv = wi ? cb / wi * 100 : null, convT = tW ? tB / tW * 100 : null;
-  const netI = ms.reduce((a, x) => a + (x.netI || 0), 0), billsI = ms.reduce((a, x) => a + (x.billsI || 0), 0), qtyI = ms.reduce((a, x) => a + (x.qtyI || 0), 0);
+  const netI = sum(ms, x => x.netI), billsI = sum(ms, x => x.billsI), qtyI = sum(ms, x => x.qtyI);
   const inp = s.inp || {};
   const audit = inp.audit == null ? null : (inp.audit <= 1.5 ? inp.audit * 100 : inp.audit);
   const r = {
     key: k, name: s.name, code: s.code || '', rm: tc(s.rm), cm: tc(s.cm), state: s.state || '', months: ms,
-    hasData: ms.some(x => x.sales), sales, ecom, target, salesPct: target ? sales / target * 100 : null, salesMonths: tm.length,
-    conv, convT, convPct: conv != null && convT ? conv / convT * 100 : null, convMonths: cm.length,
-    abv: billsI ? netI / billsI : null, upt: billsI ? qtyI / billsI : null, billsI,
+    hasData: ms.some(x => x.sales), sales, ecom, target, salesPct: target ? sales / target * 100 : null, salesMonths: tm.length, tm, cmonths: cm,
+    wi, cb, tB, tW, conv, convT, convPct: conv != null && convT ? conv / convT * 100 : null, convMonths: cm.length,
+    netI, qtyI, billsI, abv: billsI ? netI / billsI : null, upt: billsI ? qtyI / billsI : null,
     audit, shrink: inp.shrink ?? null, left: inp.left ?? null, scores: inp.scores || [], audits: inp.audits || [],
   };
   r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(r.shrink), attr: rateAttr(r.left) };
@@ -255,51 +394,69 @@ function compute() {
     let sc = 0, sw = 0;
     for (const [k, wt] of Object.entries(w)) if (rt[k] != null) { sc += wt * rt[k]; sw += wt; }
     const pending = Object.keys(w).filter(k => rt[k] == null);
-    const score = pending.length ? null : sc;
+    const score = pending.length || newStore ? null : sc;
     const prov = sw && !newStore ? sc / sw : null;     // provisional: re-weighted over KPIs that have data; new stores are not rated
-    return { ...p, st, rt, ach, ind, flags, pending, score: newStore ? null : score, prov, newStore, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
+    return { ...p, st, rt, ach, ind, flags, pending, score, prov, sw, newStore, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
   });
 }
 
-/* ---------- UI ---------- */
-const TABS = [['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['RULES', 'Rules & data']];
+/* ---------- shell ---------- */
+const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['RULES', 'How ratings work']];
 function initUI() {
-  const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
   $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Karnataka & Kerala · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
-  $('#tabs').innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === UI.tab}">${l}</button>`).join('');
-  $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; [...$('#tabs').children].forEach(x => x.setAttribute('aria-selected', x === b)); render(); };
+  $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; render(); };
   const opts = (el, label, vals) => { el.innerHTML = `<option value="">${label}</option>` + [...new Set(vals)].filter(Boolean).sort().map(v => `<option>${esc(v)}</option>`).join(''); };
   opts($('#fState'), 'All states', PEOPLE.map(p => p.state));
   opts($('#fRm'), 'All RMs', PEOPLE.map(p => p.rmN));
   opts($('#fCm'), 'All CMs', PEOPLE.map(p => p.cmN));
-  $('#fRating').innerHTML = '<option value="">All ratings</option>' + [4, 3, 2, 1].map(r => `<option value="${r}">Rating ${r}</option>`).join('') + '<option value="p">Pending only</option>';
+  $('#fRating').innerHTML = '<option value="">All ratings</option>' + [4, 3, 2, 1].map(r => `<option value="${r}">Rating ${r}</option>`).join('') + '<option value="p">Not final yet</option>';
   ['#fState', '#fRm', '#fCm', '#fRating', '#fElig'].forEach(s => $(s).onchange = render);
   $('#fq').oninput = render;
   $('#exportBtn').onclick = exportCsv;
   $('#themeBtn').onclick = () => { const d = document.documentElement, dark = d.dataset.theme ? d.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; d.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('h1theme', d.dataset.theme); } catch {} };
-  try { const t = localStorage.getItem('h1theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  $('#foot').innerHTML = 'Ratings are calculated automatically from POS sales, targets, walk-ins, stock audits and the ops scorecard. Click any row for the full workings.';
   render();
 }
 function filtered() {
   const st = $('#fState').value, rm = $('#fRm').value, cm = $('#fCm').value, rt = $('#fRating').value, q = $('#fq').value.trim().toLowerCase(), el = $('#fElig').checked;
   return PEOPLE.filter(p => (!st || p.state === st) && (!rm || p.rmN === rm) && (!cm || p.cmN === cm) && (!el || p.eligible)
-    && (!rt || (rt === 'p' ? p.final == null : (p.final ?? p.provFinal) === +rt))
+    && (!rt || (rt === 'p' ? p.final == null : rOf(p) === +rt))
     && (!q || (p.name + ' ' + p.id + ' ' + p.outlet).toLowerCase().includes(q)));
 }
 function render() {
+  const base = filtered();
+  $('#tabs').innerHTML = TABS.map(([k, l]) => {
+    const n = ['SM', 'ASM', 'SSA'].includes(k) ? base.filter(p => p.role === k).length : null;
+    return `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === UI.tab}">${l}${n != null ? ` <span class="cnt">${n}</span>` : ''}</button>`;
+  }).join('');
   $('#filters').classList.toggle('hidden', UI.tab === 'RULES');
-  $('#fRating').classList.toggle('hidden', UI.tab === 'STORES'); $('#fElig').parentElement.classList.toggle('hidden', UI.tab === 'STORES');
-  if (UI.tab === 'RULES') return renderRules();
-  if (UI.tab === 'STORES') return renderStores();
-  renderPeople(UI.tab);
+  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW'].includes(UI.tab));
+  $('#fElig').parentElement.classList.toggle('hidden', UI.tab === 'STORES');
+  if (UI.tab === 'OVERVIEW') renderOverview(base);
+  else if (UI.tab === 'RULES') renderRules();
+  else if (UI.tab === 'STORES') renderStores();
+  else renderPeople(UI.tab, base);
 }
-function distBar(list, label) {
-  const c = [0, 0, 0, 0, 0], n = list.length;
-  list.forEach(p => { const r = p.final ?? p.provFinal; if (r) c[r]++; else c[0]++; });
-  const seg = (r, k) => c[r] ? `<div style="flex:${c[r]};background:${r ? `var(--r${r})` : 'var(--grid)'}" data-tip="${k}: ${c[r]} (${(c[r] / n * 100).toFixed(0)}%)"></div>` : '';
-  return `<div class="card"><h2>${label}</h2><div class="dist">${seg(1, 'Rating 1')}${seg(2, 'Rating 2')}${seg(3, 'Rating 3')}${seg(4, 'Rating 4')}${seg(0, 'No rating')}</div>
-  <div class="legend">${[1, 2, 3, 4].map(r => `<span><i style="background:var(--r${r})"></i>Rating ${r}: <b>${c[r]}</b> (${n ? (c[r] / n * 100).toFixed(0) : 0}%)</span>`).join('')}${c[0] ? `<span><i style="background:var(--grid)"></i>No rating: <b>${c[0]}</b></span>` : ''}</div></div>`;
+
+/* ---------- reusable pieces ---------- */
+const tile = (c, icon, k, v, n, meter) => `<div class="tile" style="--c:${c}"><div class="top"><div class="ico">${ICON[icon]}</div><div class="k">${k}</div></div><div class="v">${v}</div>${meter != null ? `<div class="meter"><i style="width:${Math.max(0, Math.min(100, meter))}%"></i></div>` : ''}<div class="n">${n}</div></div>`;
+function mix(list) { const c = { 1: 0, 2: 0, 3: 0, 4: 0, n: 0 }; list.forEach(p => { const r = rOf(p); if (r) c[r]++; else c.n++; }); return c; }
+function stackBar(c, total) {
+  const seg = r => c[r] ? `<div style="flex:${c[r]};background:var(--r${r})${r === 2 ? ';color:#1a1300' : ''}" data-tip="Rating ${r}: ${c[r]} people (${(c[r] / total * 100).toFixed(0)}%)">${c[r] / total >= .08 ? c[r] : ''}</div>` : '';
+  return `<div class="sbar">${seg(1)}${seg(2)}${seg(3)}${seg(4)}${c.n ? `<div style="flex:${c.n};background:var(--axis)" data-tip="Not rated / pending: ${c.n}"></div>` : ''}</div>`;
 }
+const legend = (extra = '') => `<div class="legend">${[1, 2, 3, 4].map(r => `<span><i style="background:var(--r${r})"></i>Rating ${r}</span>`).join('')}${extra}</div>`;
+function ratingCards(list) {
+  const c = mix(list), n = list.length || 1;
+  const desc = { 1: 'score below 1.5', 2: 'score 1.5 – 2.49', 3: 'score 2.5 – 3.49', 4: 'score 3.5 – 4' };
+  return `<div class="rcards">${[4, 3, 2, 1].map(r => `<div class="rcard" style="--rc:var(--r${r})"><div class="rn">${chip(r)} ${desc[r]}</div><div class="rv">${c[r]}</div><div class="rp">${(c[r] / n * 100).toFixed(0)}% of people</div></div>`).join('')}</div>`;
+}
+function achCell(v, r, d = 0) {
+  if (v == null) return `<span class="muted">–</span> ${chip(null)}`;
+  const w = Math.max(3, Math.min(100, v / 130 * 100));
+  return `<span class="ach" style="--rc:var(--r${r})"><span class="row">${fmtP(v, d)} ${chip(r)}</span><span class="db"><i style="width:${w}%"></i></span></span>`;
+}
+function median(a) { if (!a.length) return null; a = a.slice().sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
 function sortRows(rows, getters) {
   if (!UI.sort || !getters[UI.sort]) return rows;
   const g = getters[UI.sort];
@@ -308,167 +465,315 @@ function sortRows(rows, getters) {
 function bindSort(rerender) {
   document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => { const s = th.dataset.s; UI.dir = UI.sort === s ? -UI.dir : (th.classList.contains('num') ? -1 : 1); UI.sort = s; rerender(); });
 }
-function renderPeople(role) {
-  const all = filtered().filter(p => p.role === role), w = WEIGHTS[role], ks = Object.keys(w);
-  const done = all.filter(p => p.final != null).length;
-  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-  const pendK = [...new Set(all.flatMap(p => p.pending))];
+function storesIn(list) { return [...new Set(list.map(p => p.outlet))].map(storeH1).filter(s => s.hasData); }
+function storeChart(stores, title, hint) {
+  const rows = stores.filter(s => s.salesPct != null).sort((a, b) => b.salesPct - a.salesPct);
+  const max = Math.max(130, ...rows.map(s => s.salesPct)), x = v => v / max * 100;
+  return `<div class="card"><h2>${title}</h2><p class="hint">${hint}</p><div class="hchart">
+  ${rows.map(s => `<div class="hrow" data-k="${esc(s.key)}" data-tip="${esc(tc(s.name))}: ${fmtL(s.sales)} vs target ${fmtL(s.target)} = ${fmtP(s.salesPct)} → rating ${s.rt.sales}">
+    <div class="lab">${esc(tc(s.name).replace(/^\w+ - /, ''))}</div>
+    <div class="track"><div class="ref" style="left:${x(70)}%"></div><div class="ref" style="left:${x(90)}%"></div><div class="ref main" style="left:${x(100)}%"></div><div class="bar" style="width:${x(s.salesPct)}%;background:var(--r${s.rt.sales})"></div></div>
+    <div class="val">${fmtP(s.salesPct, 0)}</div></div>`).join('')}
+  <div class="axisrow"><span></span><div class="ticks">${[0, 70, 90, 100, 130].filter(t => t <= max).map(t => `<span style="left:${x(t)}%">${t}%</span>`).join('')}</div><span></span></div>
+  </div>${legend('<span><i style="background:var(--ink-2);opacity:.55"></i>100% = on target</span>')}</div>`;
+}
+
+/* ---------- overview ---------- */
+function renderOverview(base) {
+  const elig = base, rated = elig.filter(p => !p.newStore), fin = elig.filter(p => p.final != null);
+  const stores = storesIn(elig);
+  const tS = sum(stores, s => s.sales), tT = sum(stores, s => s.target);
+  const tCb = sum(stores, s => s.cb), tWi = sum(stores, s => s.wi), tTB = sum(stores, s => s.tB), tTW = sum(stores, s => s.tW);
+  const conv = tWi ? tCb / tWi * 100 : null, convT = tTW ? tTB / tTW * 100 : null;
+  const sPct = tT ? tS / tT * 100 : null, cPct = conv && convT ? conv / convT * 100 : null;
+  const avgScore = avg(rated.map(p => p.score ?? p.prov).filter(v => v != null));
   const tiles = `<div class="tiles">
-    <div class="tile"><div class="k">People in view</div><div class="v">${all.length}</div><div class="n">${all.filter(p => p.eligible).length} eligible for review</div></div>
-    <div class="tile"><div class="k">Fully rated</div><div class="v">${done}</div><div class="n">${all.length - done ? `${all.length - done} waiting on ${pendK.map(k => KPI_SHORT[k]).join(', ')}` : 'all KPIs available'}</div></div>
-    <div class="tile"><div class="k">Avg. ${done === all.length ? 'weighted score' : 'provisional score'}</div><div class="v">${fmtN(avg(all.map(p => p.score ?? p.prov).filter(v => v != null)), 2)}</div><div class="n">on a 1–4 scale</div></div>
-    ${ks.filter(k => ['sales', 'conv', 'abv', 'upt'].includes(k)).map(k => `<div class="tile"><div class="k">Median ${KPI_LABEL[k]}</div><div class="v">${fmtP(median(all.map(p => p.ach[k]).filter(v => v != null)), 0)}</div><div class="n">achievement</div></div>`).join('')}
+    ${tile('var(--hero-b)', 'users', 'People in review', fmtN(elig.length), `${elig.filter(p => p.role === 'SM').length} SM · ${elig.filter(p => p.role === 'ASM').length} ASM · ${elig.filter(p => p.role === 'SSA').length} SA/SSA`)}
+    ${tile('var(--r4)', 'check', 'Ratings final', `${fin.length} <span class="muted" style="font-size:15px">/ ${rated.length}</span>`, `${rated.length - fin.length} provisional, waiting on ${[...new Set(rated.filter(p => p.final == null).flatMap(p => p.pending))].map(k => KPI_SHORT[k]).join(', ') || '–'}`, rated.length ? fin.length / rated.length * 100 : 0)}
+    ${tile('var(--k-upt)', 'star', 'Average score', fmtN(avgScore, 2), 'weighted, on a 1–4 scale', avgScore ? (avgScore - 1) / 3 * 100 : 0)}
+    ${tile(`var(--r${rateAch(sPct) || 1})`, 'rupee', 'Sales vs target (excl. e-com)', fmtP(sPct), `${fmtL(tS)} of ${fmtL(tT)}`, sPct)}
+    ${tile(`var(--r${rateAch(cPct) || 1})`, 'door', 'Conversion vs target', fmtP(conv), `target ${fmtP(convT)} · ${fmtP(cPct, 0)} achieved`, cPct)}
   </div>`;
-  const G = { name: p => p.name, id: p => +p.id || 0, outlet: p => p.outlet, cm: p => p.cmN, score: p => p.score ?? p.prov, final: p => p.final ?? p.provFinal };
+  const roleRows = ['SM', 'ASM', 'SSA'].map(r => { const l = elig.filter(p => p.role === r); return l.length ? `<div class="srow"><div class="lab">${ROLE_NAME[r]}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>` : ''; }).join('');
+  const cms = [...new Set(elig.map(p => p.cmN))].filter(Boolean).sort();
+  const cmRows = cms.map(c => { const l = elig.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('');
+  const cmTable = cms.map(c => {
+    const l = elig.filter(p => p.cmN === c), st = storesIn(l);
+    const s = sum(st, x => x.sales), t = sum(st, x => x.target), cb = sum(st, x => x.cb), wi = sum(st, x => x.wi), tb = sum(st, x => x.tB), tw = sum(st, x => x.tW);
+    const sp = t ? s / t * 100 : null, cp = wi && tw ? (cb / wi) / (tb / tw) * 100 : null;
+    const au = avg(st.map(x => x.audit).filter(v => v != null)), sc = avg(l.filter(p => !p.newStore).map(p => p.score ?? p.prov).filter(v => v != null));
+    return `<tr data-cm="${esc(c)}"><td><b>${esc(c)}</b><div class="cellsub">${esc(l[0]?.rmN || '')}</div></td><td class="num">${st.length}</td><td class="num">${l.length}</td>
+      <td class="num bl">${achCell(sp, rateAch(sp), 1)}</td><td class="num">${achCell(cp, rateAch(cp), 0)}</td><td class="num">${au == null ? '–' : fmtP(au, 0) + ' ' + chip(rateAudit(au))}</td>
+      <td class="num bl"><b>${fmtN(sc, 2)}</b></td><td style="min-width:160px">${stackBar(mix(l), l.length)}</td></tr>`;
+  }).join('');
+  $('#view').innerHTML = tiles +
+    `<div class="grid2"><div class="card"><h2>Final rating mix</h2><p class="hint">Everyone in view; provisional ratings included until all KPIs are in.</p>${ratingCards(rated)}</div>
+     <div class="card"><h2>Rating mix by role</h2><p class="hint">Hover a segment for counts.</p>${roleRows}${legend('<span><i style="background:var(--axis)"></i>Not rated</span>')}</div></div>
+    <div class="card"><h2>Cluster Manager scorecard</h2><p class="hint">Store KPIs rolled up across each CM's stores, with the rating mix of their team. Click a row to filter the dashboard to that CM.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Cluster Manager</th><th class="num">Stores</th><th class="num">People</th><th class="num bl">Sales ach.</th><th class="num">Conv. ach.</th><th class="num">Ops score</th><th class="num bl">Avg score</th><th>Rating mix</th></tr></thead><tbody>${cmTable}</tbody></table></div></div>
+    <div class="grid2">${storeChart(stores, 'Sales achievement by store', 'H1 store sales excluding e-commerce ÷ target. Dashed lines mark the 70% and 90% rating bands. Click a bar for details.')}
+    <div class="card"><h2>Rating mix by Cluster Manager</h2><p class="hint">All roles together.</p>${cmRows}${legend()}</div></div>`;
+  document.querySelectorAll('tr[data-cm]').forEach(tr => tr.onclick = () => { $('#fCm').value = tr.dataset.cm; UI.tab = 'SM'; render(); });
+  document.querySelectorAll('.hrow[data-k]').forEach(r => r.onclick = () => openStore(r.dataset.k));
+}
+
+/* ---------- people tables ---------- */
+function renderPeople(role, base) {
+  const all = base.filter(p => p.role === role), w = WEIGHTS[role], ks = Object.keys(w);
+  const rated = all.filter(p => !p.newStore), done = rated.filter(p => p.final != null).length;
+  const pendK = [...new Set(rated.flatMap(p => p.pending))];
+  const tiles = `<div class="tiles">
+    ${tile('var(--hero-b)', 'users', 'People in view', all.length, `${all.filter(p => p.eligible).length} eligible for review`)}
+    ${tile('var(--r4)', 'check', 'Fully rated', `${done} <span class="muted" style="font-size:15px">/ ${rated.length}</span>`, rated.length - done ? `${rated.length - done} waiting on ${pendK.map(k => KPI_SHORT[k]).join(', ')}` : 'all KPIs available', rated.length ? done / rated.length * 100 : 0)}
+    ${tile('var(--k-upt)', 'star', done === rated.length ? 'Average score' : 'Average score (provisional)', fmtN(avg(rated.map(p => p.score ?? p.prov).filter(v => v != null)), 2), 'weighted, on a 1–4 scale')}
+    ${ks.filter(k => ['sales', 'conv', 'abv', 'upt'].includes(k)).map(k => { const m = median(rated.map(p => p.ach[k]).filter(v => v != null)); return tile(KCOL(k), KICON[k], `Median ${KPI_LABEL[k]}`, fmtP(m, 0), 'achievement', m); }).join('')}
+  </div>`;
+  const G = { name: p => p.name, outlet: p => p.outlet, score: p => p.score ?? p.prov, final: p => rOf(p) };
   ks.forEach(k => G[k] = p => p.ach[k]);
   const rows = sortRows(all, G);
-  const kHead = ks.map(k => `<th class="num bl" data-s="${k}">${KPI_SHORT[k]} <span class="muted">${Math.round(w[k] * 100)}%</span></th>`).join('');
-  const val = (p, k) => k === 'audit' ? fmtP(p.ach[k], 1) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] == null ? '–' : p.ach[k] + ' left') : fmtP(p.ach[k], 0);
+  const kHead = ks.map(k => `<th class="num bl" data-s="${k}"><span class="kdot" style="background:${KCOL(k)}"></span>${KPI_SHORT[k]} <span class="muted">${Math.round(w[k] * 100)}%</span></th>`).join('');
+  const val = (p, k) => k === 'audit' ? achCell(p.ach[k], p.rt[k], 1)
+    : k === 'shrink' ? `${p.ach[k] == null ? '<span class="muted">–</span>' : p.ach[k].toFixed(3) + '%'} ${chip(p.rt[k])}`
+    : k === 'attr' ? `${p.ach[k] == null ? '<span class="muted">awaiting</span>' : p.ach[k] + ' left'} ${chip(p.rt[k])}` : achCell(p.ach[k], p.rt[k]);
   const body = rows.map(p => `<tr class="${p.eligible ? '' : 'inel'}" data-id="${esc(p.id)}">
-    <td>${esc(p.name)}<div class="muted" style="font-size:11px">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></td>
-    <td>${esc(tc(p.outlet))}<div class="muted" style="font-size:11px">${esc(p.cmN)}</div></td>
-    ${ks.map(k => `<td class="num bl">${val(p, k)} ${chip(p.rt[k])}</td>`).join('')}
-    <td class="num bl">${p.score != null ? fmtN(p.score, 2) : `<span class="muted" title="Provisional, re-weighted over available KPIs">${fmtN(p.prov, 2)}*</span>`}</td>
-    <td class="num">${p.final != null ? chip(p.final) : (p.provFinal ? `<span class="chip pend" title="Provisional">${p.provFinal}*</span>` : chip(null))}</td>
-    <td>${p.flags.map(f => `<span class="flag w">${esc(f)}</span>`).join('')}</td></tr>`).join('');
-  $('#view').innerHTML = tiles + distBar(all, `Final rating distribution${done < all.length ? ' (provisional where marked *)' : ''}`) +
-    `<div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
-    ${done < all.length ? `<p class="muted" style="font-size:12px">* Provisional: ${pendK.map(k => KPI_LABEL[k]).join(', ')} not uploaded yet, so the score is re-weighted over the KPIs that have data. It becomes final once every KPI is in.</p>` : ''}`;
-  bindSort(() => renderPeople(role));
+    <td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td>
+    <td>${esc(tc(p.outlet))}<div class="cellsub">${esc(p.cmN)}</div></td>
+    ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
+    <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
+    <td class="num">${ratingChip(p)}</td>
+    <td>${p.flags.map(f => `<span class="flag${/New store/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+  $('#view').innerHTML = tiles +
+    `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
+     <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
+    <div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
+    ${done < rated.length ? `<p class="note">* Provisional: ${pendK.map(k => KPI_LABEL[k]).join(', ')} not in yet, so the score is re-weighted over the KPIs that have data. It becomes final once every KPI is in. See “How ratings work”.</p>` : ''}`;
+  bindSort(() => renderPeople(role, filtered()));
   $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) openPerson(tr.dataset.id, role); };
-  bindTips();
 }
-function median(a) { if (!a.length) return null; a = a.slice().sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+
+/* ---------- stores ---------- */
 function renderStores() {
   const st = $('#fState').value, rm = $('#fRm').value, cm = $('#fCm').value, q = $('#fq').value.trim().toLowerCase();
   const keys = [...new Set(PEOPLE.map(p => p.outlet))];
   let list = keys.map(storeH1).map(s => ({ ...s, people: PEOPLE.filter(p => p.outlet === s.key) }))
     .filter(s => (!st || s.people.some(p => p.state === st)) && (!rm || s.people.some(p => p.rmN === rm)) && (!cm || s.people.some(p => p.cmN === cm)) && (!q || (s.name + ' ' + s.code).toLowerCase().includes(q)));
-  const G = { name: s => s.name, sales: s => s.sales, target: s => s.target, salesPct: s => s.salesPct, conv: s => s.conv, convT: s => s.convT, convPct: s => s.convPct, abv: s => s.abv, upt: s => s.upt, hc: s => s.people.length };
-  list = sortRows(list, G);
-  const tS = list.reduce((a, s) => a + s.sales, 0), tT = list.reduce((a, s) => a + s.target, 0);
+  const G = { name: s => s.name, sales: s => s.sales, target: s => s.target, salesPct: s => s.salesPct, conv: s => s.conv, convPct: s => s.convPct, abv: s => s.abv, upt: s => s.upt, audit: s => s.audit, shrink: s => s.shrink, hc: s => s.people.length };
+  const sorted = sortRows(list, G);
+  const tS = sum(list, s => s.sales), tT = sum(list, s => s.target), sp = tT ? tS / tT * 100 : null;
+  const live = list.filter(s => s.hasData);
   $('#view').innerHTML = `<div class="tiles">
-    <div class="tile"><div class="k">Stores</div><div class="v">${list.length}</div><div class="n">${list.filter(s => !s.hasData).length} without H1 sales</div></div>
-    <div class="tile"><div class="k">H1 sales</div><div class="v">${fmtL(tS)}</div><div class="n">vs target ${fmtL(tT)}</div></div>
-    <div class="tile"><div class="k">Achievement</div><div class="v">${fmtP(tT ? tS / tT * 100 : null, 1)}</div><div class="n">sales vs target, H1</div></div>
-    <div class="tile"><div class="k">Stores ≥ 100% sales</div><div class="v">${list.filter(s => s.salesPct > 100).length}</div><div class="n">rating 4 on sales</div></div>
+    ${tile('var(--hero-b)', 'store', 'Stores', list.length, `${list.length - live.length} new (no H1 sales)`)}
+    ${tile(`var(--r${rateAch(sp) || 1})`, 'rupee', 'H1 sales (excl. e-com)', fmtL(tS), `vs target ${fmtL(tT)} · ${fmtP(sp)}`, sp)}
+    ${tile('var(--r4)', 'target', 'Stores on target', live.filter(s => s.salesPct > 100).length, `of ${live.length}: sales above 100%`)}
+    ${tile('var(--k-conv)', 'door', 'Stores on conversion', live.filter(s => s.convPct > 100).length, `of ${live.length}: conversion above target`)}
+    ${tile('var(--k-audit)', 'clip', 'Avg ops scorecard', fmtP(avg(live.map(s => s.audit).filter(v => v != null)), 1), 'Apr–Aug average')}
   </div>
-  <div class="tbl-wrap"><table><thead><tr><th data-s="name">Store</th><th class="num bl" data-s="sales">H1 sales</th><th class="num" data-s="target">Target</th><th class="num" data-s="salesPct">Ach.</th><th class="num">Rt</th>
-  <th class="num bl" data-s="conv">Conv.</th><th class="num" data-s="convT">Target</th><th class="num" data-s="convPct">Ach.</th><th class="num">Rt</th>
-  <th class="num bl" data-s="abv">ABV</th><th class="num" data-s="upt">UPT</th><th class="num bl">Audit</th><th class="num">Shrink</th><th class="num">Left</th><th class="num bl" data-s="hc">Staff</th></tr></thead><tbody>
-  ${list.map(s => `<tr data-k="${esc(s.key)}"><td>${esc(tc(s.name))}<div class="muted" style="font-size:11px">${esc(s.code)} · ${esc(s.people[0]?.cmN || s.cm)}</div></td>
-    <td class="num bl">${fmtL(s.sales)}</td><td class="num">${fmtL(s.target)}</td><td class="num">${fmtP(s.salesPct, 1)}</td><td class="num">${chip(s.rt.sales)}</td>
-    <td class="num bl">${fmtP(s.conv, 1)}</td><td class="num">${fmtP(s.convT, 1)}</td><td class="num">${fmtP(s.convPct, 0)}</td><td class="num">${chip(s.rt.conv)}</td>
-    <td class="num bl">${s.abv ? '₹' + fmtN(s.abv) : '–'}</td><td class="num">${fmtN(s.upt, 2)}</td>
-    <td class="num bl">${fmtP(s.audit, 0)} ${chip(s.rt.audit)}</td><td class="num">${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'} ${chip(s.rt.shrink)}</td><td class="num">${chip(s.rt.attr, s.left ?? '')}</td>
-    <td class="num bl">${s.people.length}</td></tr>`).join('')}</tbody></table></div>`;
+  ${storeChart(live, 'Sales achievement by store', 'H1 store sales excluding e-commerce ÷ target. Dashed lines mark the 70% and 90% rating bands. Click a bar for details.')}
+  <div class="tbl-wrap"><table><thead><tr><th data-s="name">Store</th><th class="num bl" data-s="sales"><span class="kdot" style="background:var(--k-sales)"></span>H1 sales</th><th class="num" data-s="target">Target</th><th class="num" data-s="salesPct">Achievement</th>
+  <th class="num bl" data-s="conv"><span class="kdot" style="background:var(--k-conv)"></span>Conv.</th><th class="num">Target</th><th class="num" data-s="convPct">Achievement</th>
+  <th class="num bl" data-s="abv"><span class="kdot" style="background:var(--k-abv)"></span>ABV</th><th class="num" data-s="upt">UPT</th><th class="num bl" data-s="audit"><span class="kdot" style="background:var(--k-audit)"></span>Ops</th><th class="num" data-s="shrink"><span class="kdot" style="background:var(--k-shrink)"></span>Shrink</th><th class="num" data-s="hc">Staff</th></tr></thead><tbody>
+  ${sorted.map(s => `<tr data-k="${esc(s.key)}"><td><div class="who"><div class="av" style="--avc:var(--r${s.rt.sales || 1});${s.hasData ? '' : 'background:var(--axis)'}">${esc(initials(tc(s.name).replace(/^\w+ - /, '')))}</div><div><div class="nm">${esc(tc(s.name))}</div><div class="meta">${esc(s.code)} · ${esc(s.people[0]?.cmN || s.cm)}${s.hasData ? '' : ' · new store'}</div></div></div></td>
+    <td class="num bl">${fmtL(s.sales)}</td><td class="num">${fmtL(s.target)}</td><td class="num">${achCell(s.salesPct, s.rt.sales, 1)}</td>
+    <td class="num bl">${fmtP(s.conv, 1)}</td><td class="num">${fmtP(s.convT, 1)}</td><td class="num">${achCell(s.convPct, s.rt.conv)}</td>
+    <td class="num bl">${fmtR(s.abv)}</td><td class="num">${fmtN(s.upt, 2)}</td>
+    <td class="num bl">${fmtP(s.audit, 0)} ${chip(s.rt.audit)}</td><td class="num">${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'} ${chip(s.rt.shrink)}</td>
+    <td class="num">${s.people.length}</td></tr>`).join('')}</tbody></table></div>`;
   bindSort(renderStores);
   $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-k]'); if (tr) openStore(tr.dataset.k); };
+  document.querySelectorAll('.hrow[data-k]').forEach(r => r.onclick = () => openStore(r.dataset.k));
 }
+
+/* ---------- drill-downs ---------- */
 function monthTable(s) {
-  const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
   return `<div class="tbl-wrap"><table><thead><tr><th>Month</th><th class="num">Store sales</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
-  ${s.months.map(x => `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${x.target ? fmtP((x.netI || 0) / x.target * 100, 0) : '–'}</td>
+  ${s.months.map(x => { const a = x.target ? (x.netI || 0) / x.target * 100 : null; return `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${a == null ? '–' : `<span style="color:var(--r${rateAch(a)});font-weight:700">●</span> ${fmtP(a, 0)}`}</td>
   <td class="num bl">${fmtN(x.wi)}</td><td class="num">${fmtN(x.cBills)}</td><td class="num">${x.wi ? fmtP(x.cBills / x.wi * 100) : '–'}</td><td class="num">${x.cvT ? fmtP(x.cvT * 100, 0) : '–'}</td>
-  <td class="num bl">${x.billsI ? '₹' + fmtN(x.netI / x.billsI) : '–'}</td><td class="num">${x.billsI ? fmtN(x.qtyI / x.billsI, 2) : '–'}</td></tr>`).join('')}
-  <tr><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b></td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b></td><td class="num bl"><b>${s.abv ? '₹' + fmtN(s.abv) : '–'}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
+  <td class="num bl">${x.billsI ? fmtR(x.netI / x.billsI) : '–'}</td><td class="num">${x.billsI ? fmtN(x.qtyI / x.billsI, 2) : '–'}</td></tr>`; }).join('')}
+  <tr style="background:var(--surface-2)"><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b> ${chip(s.rt.sales)}</td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b> ${chip(s.rt.conv)}</td><td class="num bl"><b>${fmtR(s.abv)}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
   </tbody></table></div>`;
 }
 function opsCard(s) {
   if (!s.scores.length && !s.audits.length) return '';
-  const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
   return `<div class="card"><h2>Ops scorecard &amp; stock audits</h2>
-  ${s.scores.length ? `<div class="tbl-wrap" style="margin-bottom:10px"><table><thead><tr><th>Scorecard</th>${s.scores.map(x => `<th class="num">${mL(x.m)}</th>`).join('')}<th class="num bl">H1 avg</th></tr></thead><tbody>
-  <tr><td>Score</td>${s.scores.map(x => `<td class="num" title="${esc(x.zone)}">${fmtP(x.v, 0)}</td>`).join('')}<td class="num bl"><b>${fmtP(s.audit)}</b> ${chip(s.rt.audit)}</td></tr></tbody></table></div>` : ''}
+  ${s.scores.length ? `<div class="tbl-wrap" style="margin:10px 0"><table><thead><tr><th>Scorecard</th>${s.scores.map(x => `<th class="num">${mL(x.m)}</th>`).join('')}<th class="num bl">H1 avg</th></tr></thead><tbody>
+  <tr><td>Score</td>${s.scores.map(x => `<td class="num" data-tip="${esc(x.zone)}">${fmtP(x.v, 0)}</td>`).join('')}<td class="num bl"><b>${fmtP(s.audit)}</b> ${chip(s.rt.audit)}</td></tr></tbody></table></div>` : ''}
   ${s.audits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Stock audit</th><th>Auditor</th><th class="num">Store sale</th><th class="num">Shrink value</th><th class="num">Qty</th><th class="num">Shrink %</th></tr></thead><tbody>
   ${s.audits.map(a => `<tr><td>${esc(a.date)}</td><td>${esc(a.auditor)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${fmtN(a.qty)}</td><td class="num">${a.sale ? (-a.value / a.sale * 100).toFixed(3) + '%' : '–'}</td></tr>`).join('')}
-  <tr><td colspan="5"><b>H1 net loss ÷ store sale</b></td><td class="num"><b>${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'}</b> ${chip(s.rt.shrink)}</td></tr></tbody></table></div>` : ''}</div>`;
+  <tr style="background:var(--surface-2)"><td colspan="5"><b>H1 net loss ÷ store sale</b></td><td class="num"><b>${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'}</b> ${chip(s.rt.shrink)}</td></tr></tbody></table></div>` : ''}</div>`;
 }
-function drawer(html) {
-  $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div style="display:flex;justify-content:flex-end"><button class="btn" id="dClose">Close</button></div>${html}</aside>`;
-  const close = () => { $('#drawerHost').innerHTML = ''; document.removeEventListener('keydown', esc_); };
-  const esc_ = e => { if (e.key === 'Escape') close(); };
-  $('#dClose').onclick = close; $('.scrim').onclick = close; document.addEventListener('keydown', esc_);
+function drawer(head, body) {
+  $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div class="dhead">${head}<span class="spacer"></span><button class="hbtn" id="dClose">Close</button></div><div class="dbody">${body}</div></aside>`;
+  const close = () => { $('#drawerHost').innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  $('#dClose').onclick = close; $('.scrim').onclick = close; document.addEventListener('keydown', onKey);
 }
 function openPerson(id, role) {
   const p = PEOPLE.find(x => x.id === id && x.role === role), w = WEIGHTS[p.role], s = p.st;
   const basis = {
-    sales: `Store ${fmtL(s.sales)} (excl. e-com ${fmtL(s.ecom)}) vs target ${fmtL(s.target)} (${s.salesMonths} months)`,
+    sales: `Store ${fmtL(s.sales)} vs target ${fmtL(s.target)} (${s.salesMonths} months)`,
     conv: `Store ${fmtP(s.conv)} vs target ${fmtP(s.convT)} (${s.convMonths} months)`,
-    abv: p.ind ? `Individual ₹${fmtN(p.ind.abv)} vs store ₹${fmtN(p.ind.sAbv)}` : '',
-    upt: p.ind ? `Individual ${fmtN(p.ind.upt, 2)} vs store ${fmtN(p.ind.sUpt, 2)}` : '',
-    audit: s.audit == null ? 'Awaiting audit score' : `Store scorecard avg ${fmtP(s.audit)} (${s.scores.length || 1} months)`,
+    abv: p.ind ? `Own ${fmtR(p.ind.abv)} vs store ${fmtR(p.ind.sAbv)}` : '',
+    upt: p.ind ? `Own ${fmtN(p.ind.upt, 2)} vs store ${fmtN(p.ind.sUpt, 2)}` : '',
+    audit: s.audit == null ? 'Awaiting scorecard' : `Store scorecard avg ${fmtP(s.audit)} (${s.scores.length || 1} months)`,
     shrink: s.shrink == null ? 'Awaiting shrinkage' : `Store shrinkage ${s.shrink.toFixed(3)}% (${s.audits.length || 1} stock audits)`,
-    attr: s.left == null ? 'Awaiting attrition' : `${s.left} people left in H1`,
+    attr: s.left == null ? 'Awaiting attrition data' : `${s.left} people left in H1`,
   };
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
-  drawer(`<h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div>
-  <div class="kv"><div><b>Grade</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>Confirmation</b>${esc(p.conf || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
-  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag w">${esc(f)}</span>`).join('')}</p>` : ''}
-  <div class="card"><h2>KPI scorecard</h2><div class="tbl-wrap"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
-  ${Object.keys(w).map(k => `<tr><td>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
-  <tr><td colspan="4"><b>${p.score != null ? 'Final weighted score' : 'Provisional score (re-weighted over available KPIs)'}</b></td><td class="num">${p.final != null ? chip(p.final) : `<span class="chip pend">${p.provFinal ?? '–'}*</span>`}</td><td class="num"><b>${fmtN(p.score ?? p.prov, 2)}</b></td></tr>
+  drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
+  `<div class="kv"><div><b>Grade</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>Confirmation</b>${esc(p.conf || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
+  <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
+  ${Object.keys(w).map(k => `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
+  <tr style="background:var(--surface-2)"><td colspan="4"><b>${p.newStore ? 'New store, not rated for H1' : p.score != null ? 'Final weighted score' : `Provisional score: ${fmtN(p.prov * p.sw, 2)} ÷ ${fmtN(p.sw, 2)} (weights with data)`}</b></td><td class="num">${ratingChip(p)}</td><td class="num"><b>${fmtN(p.score ?? p.prov, 2)}</b></td></tr>
   </tbody></table></div></div>
-  ${p.ind ? `<div class="card"><h2>Individual billing, H1 · ${fmtL(p.ind.net)} · ${fmtN(p.ind.bills)} bills · ${fmtP(p.ind.contrib)} of store sales</h2>
+  ${p.ind ? `<div class="card"><h2>Individual billing, H1</h2><p class="hint">${fmtL(p.ind.net)} · ${fmtN(p.ind.bills)} bills · ${fmtP(p.ind.contrib)} of store sales</p>
   <div class="tbl-wrap"><table><thead><tr><th>Store</th><th class="num">Sales</th><th class="num">Bills</th><th class="num">ABV</th><th class="num">Store ABV</th><th class="num">UPT</th><th class="num">Store UPT</th></tr></thead><tbody>
-  ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">₹${fmtN(x.bills ? x.net / x.bills : null)}</td><td class="num">₹${fmtN(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
+  ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">${fmtR(x.bills ? x.net / x.bills : null)}</td><td class="num">${fmtR(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
   </tbody></table></div></div>` : ''}
-  <div class="card"><h2>Store month by month · ${esc(tc(s.name))}</h2>${monthTable(s)}</div>${opsCard(s)}`);
+  <div class="card"><h2>Store month by month · ${esc(tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}`);
+}
+function weightBar(w, rt) {
+  return `<div class="wbar">${Object.entries(w).map(([k, v]) => `<div style="flex:${v};background:${KCOL(k)}" data-tip="${KPI_LABEL[k]}: weight ${Math.round(v * 100)}%${rt ? `, rating ${rt[k] ?? 'pending'}` : ''}">${KPI_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div>`;
 }
 function openStore(k) {
   const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k);
-  drawer(`<h3>${esc(tc(s.name))}</h3><div class="sub">${esc(s.code)} · ${esc(ppl[0]?.cmN || s.cm)} · ${esc(ppl[0]?.rmN || s.rm)}</div>
-  <div class="card" style="margin-top:12px"><h2>Month by month</h2>${monthTable(s)}</div>${opsCard(s)}
-  <div class="card"><h2>Team (${ppl.length})</h2><div class="tbl-wrap"><table><thead><tr><th>Employee</th><th>Role</th><th class="num">Rating</th></tr></thead><tbody>
-  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td>${esc(p.name)} <span class="muted">${esc(p.id)}</span></td><td>${esc(p.desig)}</td><td class="num">${p.final != null ? chip(p.final) : `<span class="chip pend">${p.provFinal ?? '–'}*</span>`}</td></tr>`).join('')}
+  drawer(`<div class="av" style="--avc:var(--r${s.rt.sales || 1});width:46px;height:46px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${ICON.store.replace('<svg', '<svg width="22" height="22"')}</div><div><h3>${esc(tc(s.name))}</h3><div class="sub">${esc(s.code)} · ${esc(ppl[0]?.cmN || s.cm)} · ${esc(ppl[0]?.rmN || s.rm)}</div></div>`,
+  `<div class="tiles">${tile(`var(--r${s.rt.sales || 1})`, 'rupee', 'Sales vs target', fmtP(s.salesPct), `${fmtL(s.sales)} of ${fmtL(s.target)}`, s.salesPct)}${tile(`var(--r${s.rt.conv || 1})`, 'door', 'Conversion', fmtP(s.conv), `target ${fmtP(s.convT)}`, s.convPct)}${tile('var(--k-audit)', 'clip', 'Ops scorecard', fmtP(s.audit), 'Apr–Aug average')}</div>
+  <div class="card"><h2>Month by month</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}
+  <div class="card"><h2>Team (${ppl.length})</h2><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Role</th><th class="num">Score</th><th class="num">Rating</th></tr></thead><tbody>
+  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td><td>${esc(p.desig)}</td><td class="num">${fmtN(p.score ?? p.prov, 2)}</td><td class="num">${ratingChip(p)}</td></tr>`).join('')}
   </tbody></table></div></div>`);
 }
+
+/* ---------- how ratings work (live worked examples) ---------- */
+function scale(bands, dom, v, fmt) {
+  // bands: [{r, to}] left→right, dom: [min, max]
+  const [lo, hi] = dom, x = t => (Math.max(lo, Math.min(hi, t)) - lo) / (hi - lo) * 100;
+  let prev = lo;
+  const segs = bands.map(b => { const w = x(b.to) - x(prev); prev = b.to; return `<div class="r${b.r}" style="flex:${w};background:var(--r${b.r === 0 ? 1 : b.r})">${b.r}</div>`; }).join('');
+  const ticks = bands.slice(0, -1).map(b => `<span style="left:${x(b.to)}%">${fmt(b.to)}</span>`).join('');
+  return `<div class="scale">${v != null ? `<div class="mk"><span style="left:${Math.max(6, Math.min(94, x(v)))}%">${fmt(v)}</span></div>` : ''}<div class="segs">${segs}</div><div class="labs">${ticks}</div></div>`;
+}
+const ACH_BANDS = [{ r: 1, to: 70 }, { r: 2, to: 90 }, { r: 3, to: 100 }, { r: 4, to: 140 }];
+const achScale = v => scale(ACH_BANDS, [50, 130], v, t => t.toFixed(t % 1 ? 1 : 0) + '%');
+function kpiSection(k, title, formula, inner) {
+  return `<div class="card kpi-sec" style="--kc:${KCOL(k)}"><h2><span class="ico">${ICON[KICON[k]]}</span>${title}</h2>
+  <p class="hint">Used for: ${Object.entries(WEIGHTS).filter(([, w]) => w[k]).map(([r, w]) => `${ROLE_NAME[r]} (${Math.round(w[k] * 100)}%)`).join(' · ')}</p>
+  <div class="formula">${formula}</div>${inner}</div>`;
+}
 function renderRules() {
-  const band = '<tr><td>1</td><td>70% or below</td></tr><tr><td>2</td><td>70.1% – 90%</td></tr><tr><td>3</td><td>90.1% – 100%</td></tr><tr><td>4</td><td>Above 100%</td></tr>';
-  $('#view').innerHTML = `<div class="rules">
-  <div class="card"><h2>Weightage by role</h2><div class="tbl-wrap"><table><thead><tr><th>Role</th>${Object.keys(KPI_LABEL).map(k => `<th class="num">${KPI_LABEL[k]}</th>`).join('')}</tr></thead><tbody>
-  ${Object.entries(WEIGHTS).map(([r, w]) => `<tr><td>${{ SM: 'Store Manager', ASM: 'Asst. Store Manager', SSA: 'SA / SSA' }[r]}</td>${Object.keys(KPI_LABEL).map(k => `<td class="num">${w[k] ? Math.round(w[k] * 100) + '%' : '–'}</td>`).join('')}</tr>`).join('')}
-  </tbody></table></div></div>
-  <div class="card"><h2>Rating bands</h2><div class="tiles" style="margin:0">
-    <div><b>Sales, Conversion, ABV, UPT (achievement %)</b><table>${band}</table></div>
-    <div><b>Retail Ops Scorecard (audit %)</b><table><tr><td>1</td><td>Below 80%</td></tr><tr><td>2</td><td>80% – 89.9%</td></tr><tr><td>3</td><td>90% – 94.9%</td></tr><tr><td>4</td><td>95% and above</td></tr></table></div>
-    <div><b>Shrinkage %</b><table><tr><td>1</td><td>Above 0.125</td></tr><tr><td>2</td><td>0.076 – 0.125</td></tr><tr><td>3</td><td>0.055 – 0.075</td></tr><tr><td>4</td><td>Below 0.055</td></tr></table></div>
-    <div><b>Attrition (SM only, people left in H1)</b><table><tr><td>0</td><td>4 or more</td></tr><tr><td>1</td><td>3</td></tr><tr><td>2</td><td>2</td></tr><tr><td>3</td><td>1</td></tr><tr><td>4</td><td>Zero</td></tr></table></div>
-  </div></div>
-  <div class="card"><h2>How each KPI is measured (H1 = Apr–Sep 2026, cumulative)</h2><ul>
-    <li><b>Sales vs Target</b>: store's Item Net Amt <b>excluding e-commerce</b> lines (salesman E-COMMERCE / ECOM etc.) ÷ store target, summed over months that have a target. Applies to every role, including SA/SSA.</li>
-    <li><b>Conversion</b>: store bills ÷ walk-ins from the daily conversion report, compared with the target conversion (walk-in-target weighted CV%).</li>
-    <li><b>ABV / UPT (SA &amp; SSA)</b>: the person's own bills (by Emp ID in the salesman column) ÷ the store's ABV/UPT. If they billed in several stores, the store benchmark is weighted by their bills in each. E-commerce lines are excluded from both sides.</li>
-    <li><b>Retail Ops Scorecard</b>: average of the store's monthly operational scorecard (Apr–Aug; months marked “-” are skipped).</li><li><b>Shrinkage</b>: total net shrinkage value across the store's stock audits (Q1 + Q2) ÷ total store sale for those audits. A net excess counts as 0%.</li><li><b>Attrition (SM)</b>: people who left the store in H1, from the HR input file. Until it is filled the SM score is provisional (*).</li>
-    <li><b>Final rating</b>: weighted score rounded to the nearest whole rating (x.5 rounds up), between 1 and 4.</li>
-  </ul></div>
-  <div class="card"><h2>Data sources</h2><ul>
-    <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports)</li>
+  const keys = [...new Set(PEOPLE.map(p => p.outlet))].map(storeH1).filter(s => s.hasData).sort((a, b) => a.name.localeCompare(b.name));
+  if (!UI.exStore || !keys.some(s => s.key === UI.exStore)) UI.exStore = (keys.find(s => s.key === 'BLR - JAYNAGAR') || keys[0]).key;
+  const s = storeH1(UI.exStore), ppl = PEOPLE.filter(p => p.outlet === s.key && !p.newStore);
+  const ssa = ppl.filter(p => p.role === 'SSA' && p.ind && p.ind.bills).sort((a, b) => (b.eligible - a.eligible) || (b.ind.bills - a.ind.bills))[0];
+  const multi = PEOPLE.filter(p => p.ind && p.ind.per.length > 1 && p.ind.bills >= MIN_BILLS).sort((a, b) => b.ind.bills - a.ind.bills)[0];
+  const sm = ppl.find(p => p.role === 'SM'), asm = ppl.find(p => p.role === 'ASM');
+  const sN = esc(tc(s.name));
+
+  const weights = `<div class="card"><h2>1 · What each role is rated on</h2><p class="hint">Every KPI gets a rating from 1 to 4. Each rating is multiplied by its weight, and the weighted values add up to the final score.</p>
+    ${Object.entries(WEIGHTS).map(([r, w]) => `<div class="srow" style="grid-template-columns:minmax(110px,170px) 1fr"><div class="lab"><b>${ROLE_NAME[r]}</b></div>${weightBar(w)}</div>`).join('')}
+    <div class="legend">${KPIS.map(k => `<span><i style="background:${KCOL(k)}"></i>${KPI_LABEL[k]}</span>`).join('')}</div></div>`;
+
+  const sales = kpiSection('sales', '2 · Sales vs Target',
+    `Achievement % = <code>store sales Apr–Sep (excluding e-commerce)</code> ÷ <code>store target Apr–Sep</code> × 100. Store sales = POS Item Net Amt, without lines billed to E-COMMERCE / ECOM. Months without a target are skipped.`,
+    `<div class="steps"><div><b>Worked example: ${sN}</b><div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Month</th><th class="num">Store sales</th><th class="num">Target</th><th class="num">Month ach.</th></tr></thead><tbody>
+      ${s.tm.map(x => `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${fmtP((x.netI || 0) / x.target * 100, 0)}</td></tr>`).join('')}
+      <tr style="background:var(--surface-2)"><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct)}</b></td></tr></tbody></table></div></div>
+    <div><b>Where it lands</b>${achScale(s.salesPct)}
+      <div class="result"><span class="eq">${fmtL(s.sales)} ÷ ${fmtL(s.target)} = <b>${fmtP(s.salesPct)}</b></span> → ${chip(s.rt.sales)} <span class="muted">${bandText(s.salesPct)}</span></div>
+      <p class="note">H1 is one cumulative total, not an average of monthly %. A strong month makes up for a weak one.</p></div></div>`);
+
+  const conv = kpiSection('conv', '3 · Conversion',
+    `Actual = <code>total bills ÷ total walk-ins</code> (daily conversion report). Target = <code>Σ (walk-in target × CV% target) ÷ Σ walk-in target</code>, so busier months count for more. Achievement % = actual ÷ target × 100.`,
+    `<div class="steps"><div><b>Worked example: ${sN}</b><div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Month</th><th class="num">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num bl">WI target</th><th class="num">CV% target</th><th class="num">Target bills</th></tr></thead><tbody>
+      ${s.cmonths.map(x => `<tr><td>${mL(x.m)}</td><td class="num">${fmtN(x.wi)}</td><td class="num">${fmtN(x.cBills)}</td><td class="num">${fmtP(x.cBills / x.wi * 100)}</td><td class="num bl">${fmtN(x.wiT)}</td><td class="num">${fmtP(x.cvT * 100, 0)}</td><td class="num">${fmtN(x.wiT * x.cvT)}</td></tr>`).join('')}
+      <tr style="background:var(--surface-2)"><td><b>H1</b></td><td class="num"><b>${fmtN(s.wi)}</b></td><td class="num"><b>${fmtN(s.cb)}</b></td><td class="num"><b>${fmtP(s.conv, 2)}</b></td><td class="num bl"><b>${fmtN(s.tW)}</b></td><td></td><td class="num"><b>${fmtN(s.tB)}</b></td></tr></tbody></table></div></div>
+    <div><b>Where it lands</b>${achScale(s.convPct)}
+      <div class="result"><span class="eq">Actual ${fmtN(s.cb)} ÷ ${fmtN(s.wi)} = <b>${fmtP(s.conv, 2)}</b></span></div>
+      <div class="result"><span class="eq">Target ${fmtN(s.tB)} ÷ ${fmtN(s.tW)} = <b>${fmtP(s.convT, 2)}</b></span></div>
+      <div class="result"><span class="eq">${fmtP(s.conv, 2)} ÷ ${fmtP(s.convT, 2)} = <b>${fmtP(s.convPct)}</b></span> → ${chip(s.rt.conv)} <span class="muted">${bandText(s.convPct)}</span></div></div></div>`);
+
+  const abvupt = kpiSection('abv', '4 · ABV &amp; UPT (SA / SSA only)',
+    `ABV = <code>sales ÷ bills</code>; UPT = <code>units sold ÷ bills</code>. The person's own figures (bills under their Emp ID) are compared with the store's: achievement % = <code>own ÷ store × 100</code>. E-commerce lines are left out on both sides.`,
+    ssa ? `<div class="steps"><div><b>Worked example: ${esc(ssa.name)} (${esc(ssa.id)}), ${sN}</b><div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th></th><th class="num">Sales</th><th class="num">Bills</th><th class="num">Units</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
+      <tr><td>${esc(ssa.name.split(' ')[0])} (own)</td><td class="num">${fmtL(ssa.ind.net)}</td><td class="num">${fmtN(ssa.ind.bills)}</td><td class="num">${fmtN(ssa.ind.qty)}</td><td class="num bl"><b>${fmtR(ssa.ind.abv)}</b></td><td class="num"><b>${fmtN(ssa.ind.upt, 2)}</b></td></tr>
+      <tr><td>Store</td><td class="num">${fmtL(s.netI)}</td><td class="num">${fmtN(s.billsI)}</td><td class="num">${fmtN(s.qtyI)}</td><td class="num bl"><b>${fmtR(s.abv)}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr></tbody></table></div>
+      ${multi ? `<p class="note"><b>Billed in more than one store?</b> The store benchmark is weighted by the person's bills in each store. E.g. ${esc(multi.name)}: ${multi.ind.per.map(x => `${fmtN(x.bills)} bills at ${esc(tc(x.o))} (ABV ${fmtR(x.sAbv)})`).join(' + ')} gives a benchmark ABV of ${fmtR(multi.ind.sAbv)}.</p>` : ''}</div>
+    <div><b>ABV</b>${achScale(ssa.ach.abv)}<div class="result"><span class="eq">${fmtR(ssa.ind.abv)} ÷ ${fmtR(ssa.ind.sAbv)} = <b>${fmtP(ssa.ach.abv)}</b></span> → ${chip(ssa.rt.abv)}</div>
+      <div style="margin-top:14px"><b>UPT</b></div>${achScale(ssa.ach.upt)}<div class="result"><span class="eq">${fmtN(ssa.ind.upt, 2)} ÷ ${fmtN(ssa.ind.sUpt, 2)} = <b>${fmtP(ssa.ach.upt)}</b></span> → ${chip(ssa.rt.upt)}</div>
+      <p class="note">People with fewer than ${MIN_BILLS} bills in H1 are flagged, because a handful of bills can swing ABV a lot.</p></div></div>` : '<p class="muted">No SA/SSA with billing at this store.</p>');
+
+  const audit = kpiSection('audit', '5 · Retail Ops Scorecard',
+    `H1 score = <code>average of the store's monthly operational scorecard</code> (Apr–Aug; months marked “-” are skipped). Bands: below 80% = 1 · 80–89.9% = 2 · 90–94.9% = 3 · 95%+ = 4.`,
+    s.scores.length ? `<div class="steps"><div><b>Worked example: ${sN}</b><div class="tbl-wrap" style="margin-top:8px"><table><thead><tr>${s.scores.map(x => `<th class="num">${mL(x.m)}</th>`).join('')}<th class="num bl">Average</th></tr></thead><tbody>
+      <tr>${s.scores.map(x => `<td class="num" data-tip="${esc(x.zone)}">${fmtP(x.v, 0)}</td>`).join('')}<td class="num bl"><b>${fmtP(s.audit)}</b></td></tr></tbody></table></div></div>
+      <div><b>Where it lands</b>${scale([{ r: 1, to: 80 }, { r: 2, to: 90 }, { r: 3, to: 95 }, { r: 4, to: 100 }], [60, 100], s.audit, t => t.toFixed(t % 1 ? 1 : 0) + '%')}
+      <div class="result"><span class="eq">(${s.scores.map(x => x.v.toFixed(0)).join(' + ')}) ÷ ${s.scores.length} = <b>${fmtP(s.audit)}</b></span> → ${chip(s.rt.audit)}</div></div></div>` : '<p class="muted">No scorecard data for this store.</p>');
+
+  const shrink = kpiSection('shrink', '6 · Shrinkage',
+    `H1 shrinkage % = <code>total net shrinkage value across the store's stock audits</code> ÷ <code>total store sale for those audits</code> × 100. A net excess counts as 0%. Lower is better: above 0.125% = 1 · 0.076–0.125% = 2 · 0.055–0.075% = 3 · below 0.055% = 4.`,
+    s.audits.length ? `<div class="steps"><div><b>Worked example: ${sN}</b><div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Audit date</th><th class="num">Store sale</th><th class="num">Shrink value</th><th class="num">%</th></tr></thead><tbody>
+      ${s.audits.map(a => `<tr><td>${esc(a.date)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${(-a.value / a.sale * 100).toFixed(3)}%</td></tr>`).join('')}
+      <tr style="background:var(--surface-2)"><td><b>H1</b></td><td class="num"><b>${fmtL(sum(s.audits, a => a.sale))}</b></td><td class="num"><b>₹${fmtN(sum(s.audits, a => a.value))}</b></td><td class="num"><b>${s.shrink.toFixed(3)}%</b></td></tr></tbody></table></div></div>
+      <div><b>Where it lands</b> <span class="muted">(left = worse)</span>${scale([{ r: 1, to: -0.125 }, { r: 2, to: -0.075 }, { r: 3, to: -0.055 }, { r: 4, to: 0 }], [-0.2, 0], s.shrink == null ? null : -s.shrink, t => Math.abs(t).toFixed(3) + '%')}
+      <div class="result"><span class="eq">₹${fmtN(Math.abs(sum(s.audits, a => a.value)))} ÷ ${fmtL(sum(s.audits, a => a.sale))} = <b>${s.shrink.toFixed(3)}%</b></span> → ${chip(s.rt.shrink)}</div></div></div>` : '<p class="muted">No stock audits for this store.</p>');
+
+  const attr = kpiSection('attr', '7 · Attrition (Store Manager only)',
+    `Counted as <code>people who left the store during H1</code>: 4 or more = 0 · 3 = 1 · 2 = 2 · 1 = 3 · nobody = 4.`,
+    `<div class="steps"><div><b>Example</b><p>If 2 team members left between April and September, attrition rating = <b>2</b> and it adds 0.10 × 2 = <b>0.20</b> to the Store Manager's score.</p></div>
+     <div>${scale([{ r: 0, to: 1 }, { r: 1, to: 2 }, { r: 2, to: 3 }, { r: 3, to: 4 }, { r: 4, to: 5 }], [0, 5], null, t => '')}
+     <div class="labs" style="display:flex;justify-content:space-around;font-size:11px;color:var(--muted)"><span>4+ left</span><span>3</span><span>2</span><span>1</span><span>0 left</span></div>
+     <div class="result">${s.left == null ? 'Attrition data has not been uploaded yet, so every Store Manager is provisional (*) for now.' : `${sN}: ${s.left} left → ${chip(s.rt.attr)}`}</div></div></div>`);
+
+  const finalEx = p => {
+    if (!p) return '';
+    const w = WEIGHTS[p.role], ks = Object.keys(w), have = ks.filter(k => p.rt[k] != null);
+    const terms = have.map(k => `${w[k].toFixed(2)}×${p.rt[k]}`).join(' + ');
+    return `<div><b>${ROLE_NAME[p.role]}: ${esc(p.name)}</b><div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
+      ${ks.map(k => `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_SHORT[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? (w[k] * p.rt[k]).toFixed(2) : '–'}</td></tr>`).join('')}
+      </tbody></table></div>
+      ${p.score != null ? `<div class="result"><span class="eq">${terms} = <b>${p.score.toFixed(2)}</b></span> → rounds to ${chip(p.final)}</div>`
+        : `<div class="result"><span class="eq">(${terms}) ÷ ${p.sw.toFixed(2)} = <b>${p.prov.toFixed(2)}</b></span> → ${p.provFinal ? `<span class="chip r${p.provFinal} prov">${p.provFinal}*</span>` : '–'} <span class="muted">provisional: ${p.pending.map(k => KPI_SHORT[k]).join(', ')} pending</span></div>`}</div>`;
+  };
+  const final = `<div class="card kpi-sec" style="--kc:var(--hero-b)"><h2><span class="ico" style="--c:var(--hero-b)">${ICON.calc}</span>8 · Final score and rating</h2>
+    <div class="formula">Final score = <code>Σ (weight × KPI rating)</code>. Final rating = the score rounded to the nearest whole number (x.5 rounds up), between 1 and 4. If a KPI is still missing, the score is <b>provisional (*)</b>: the available weighted values are divided by the sum of their weights, so the result stays on the 1–4 scale.</div>
+    <div class="steps">${finalEx(sm)}${finalEx(asm)}${finalEx(ssa)}</div>
+    <div style="margin-top:14px"><b>Rounding</b>${scale([{ r: 1, to: 1.5 }, { r: 2, to: 2.5 }, { r: 3, to: 3.5 }, { r: 4, to: 4 }], [1, 4], null, t => t.toFixed(1))}</div></div>`;
+
+  const sources = `<div class="card"><h2>Data sources</h2><ul class="clean">
+    <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage and operational scorecard detail, Apr–Sep '26</li><li>PMS Retail Calibration, KA &amp; KL mid-year review: roster and eligibility</li>
-  </ul></div></div>`;
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li>
+    <li>PMS Retail Calibration, KA &amp; KL mid-year review: roster and eligibility. AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
+
+  $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
+    ${weights}${sales}${conv}${abvupt}${audit}${shrink}${attr}${final}${sources}`;
+  $('#exStore').onchange = e => { UI.exStore = e.target.value; renderRules(); };
 }
+function bandText(v) { const r = rateAch(v); return { 1: '70% or below', 2: 'falls in 70.1–90%', 3: 'falls in 90.1–100%', 4: 'above 100%' }[r] || ''; }
+
+/* ---------- export + tooltips ---------- */
 function exportCsv() {
   const role = ['SM', 'ASM', 'SSA'].includes(UI.tab) ? UI.tab : null;
   const list = role ? filtered().filter(p => p.role === role) : filtered();
-  const ks = ['sales', 'conv', 'abv', 'upt', 'audit', 'shrink', 'attr'];
-  const head = ['Emp ID', 'Name', 'Designation', 'Outlet', 'State', 'CM', 'RM', 'Eligible', ...ks.flatMap(k => [KPI_LABEL[k] + ' Ach', KPI_LABEL[k] + ' Rating']), 'Weighted Score', 'Final Rating', 'Status', 'Flags'];
+  const head = ['Emp ID', 'Name', 'Designation', 'Outlet', 'State', 'CM', 'RM', 'Eligible', ...KPIS.flatMap(k => [KPI_LABEL[k] + ' Ach', KPI_LABEL[k] + ' Rating']), 'Weighted Score', 'Final Rating', 'Status', 'Flags'];
   const q = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const rows = list.map(p => [p.id, p.name, p.desig, p.outlet, p.state, p.cmN, p.rmN, p.eligible ? 'Yes' : 'No',
-    ...ks.flatMap(k => WEIGHTS[p.role][k] ? [p.ach[k] == null ? '' : (+p.ach[k]).toFixed(k === 'shrink' ? 3 : 1), p.rt[k] ?? ''] : ['', '']),
-    (p.score ?? p.prov)?.toFixed(2) ?? '', p.final ?? p.provFinal ?? '', p.final != null ? 'Final' : 'Provisional', p.flags.join('; ')]);
+    ...KPIS.flatMap(k => WEIGHTS[p.role][k] ? [p.ach[k] == null ? '' : (+p.ach[k]).toFixed(k === 'shrink' ? 3 : 1), p.rt[k] ?? ''] : ['', '']),
+    (p.score ?? p.prov)?.toFixed(2) ?? '', rOf(p) ?? '', p.newStore ? 'New store' : p.final != null ? 'Final' : 'Provisional', p.flags.join('; ')]);
   const blob = new Blob(['﻿' + [head, ...rows].map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `H1_PMS_${role || 'All'}_${new Date().toISOString().slice(0, 10)}.csv` });
   a.click(); URL.revokeObjectURL(a.href);
 }
-function bindTips() {
-  const tip = $('#tip');
-  document.querySelectorAll('[data-tip]').forEach(el => {
-    el.onmousemove = e => { tip.textContent = el.dataset.tip; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; };
-    el.onmouseleave = () => tip.style.display = 'none';
-  });
-}
+document.addEventListener('mousemove', e => {
+  const tip = $('#tip'), el = e.target.closest && e.target.closest('[data-tip]');
+  if (!el) { tip.style.display = 'none'; return; }
+  tip.textContent = el.dataset.tip; tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px';
+  tip.style.top = Math.min(e.clientY + 16, innerHeight - tip.offsetHeight - 8) + 'px';
+});
 </script>
 </body>
 </html>
