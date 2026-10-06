@@ -62,14 +62,41 @@ for (const m of MONTHS) {
   }
 }
 
-// 3b. manual store inputs (audit score, shrinkage, attrition) — optional until HR fills the template
+// 3b. shrinkage audits + monthly operational scorecard
+SRC.ops = DL + "Shrinkage and operational score card deratil April to Sep'26.xlsx";
+{
+  const wb = X.readFile(SRC.ops);
+  const inp = k => (S(k).inp = S(k).inp || {});
+  // shrinkage: one row per stock audit; H1 % = net loss value ÷ store sale over all audits (net excess counts as 0)
+  const seen = new Set();
+  for (const r of X.utils.sheet_to_json(wb.Sheets['Shrinkage report'], { defval: null })) {
+    const k = key(r.AB); if (!k) continue;
+    const dup = [k, r['Shrinkage Value'], r['Shrinkage Qty'], r['Store Sale']].join('|'); if (seen.has(dup)) continue; seen.add(dup);
+    const i = inp(k); (i.audits = i.audits || []).push({ date: xdate(r.Date), month: String(r.Month || '').slice(0, 3), auditor: r.Auditor, pct: num(r['Shrinkage %']), value: num(r['Shrinkage Value']), qty: num(r['Shrinkage Qty']), sale: num(r['Store Sale']) });
+  }
+  for (const s of Object.values(stores)) if (s.inp && s.inp.audits) {
+    const v = s.inp.audits.reduce((a, x) => a + x.value, 0), sale = s.inp.audits.reduce((a, x) => a + x.sale, 0);
+    s.inp.shrink = sale ? Math.max(0, -v) / sale * 100 : null;
+  }
+  // scorecard: header row holds month dates (Excel serials) followed by a Zone column
+  const rows = X.utils.sheet_to_json(wb.Sheets['Operational score card'], { header: 1, defval: null });
+  const mcols = rows[0].map((h, i) => typeof h === 'number' ? { i, m: xdate(h).slice(0, 7) } : null).filter(Boolean);
+  for (const r of rows.slice(1)) {
+    const k = key(r[0]); if (!k) continue;
+    const sc = mcols.map(({ i, m }) => ({ m, v: typeof r[i] === 'number' ? r[i] * (r[i] <= 1.5 ? 100 : 1) : null, zone: r[i + 1] })).filter(x => x.v != null);
+    const i = inp(k); i.scores = sc; i.audit = sc.length ? sc.reduce((a, x) => a + x.v, 0) / sc.length : null;
+  }
+}
+
+// 3c. manual store inputs (attrition; can also override audit/shrinkage) — optional template HR fills
 SRC.inputs = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - Audit Shrinkage Attrition.xlsx';
 if (fs.existsSync(SRC.inputs)) {
   const rows = X.utils.sheet_to_json(X.readFile(SRC.inputs).Sheets.Inputs, { defval: null });
-  const pct = v => v == null || v === '' ? null : (typeof v === 'number' ? v : parseFloat(String(v).replace('%', '')));
+  const val = v => v == null || v === '' ? null : (typeof v === 'number' ? v : parseFloat(String(v).replace('%', '')));
   for (const r of rows) {
     const s = stores[key(r['Store Name'])]; if (!s) continue;
-    s.inp = { audit: pct(r['Audit Score %']), shrink: pct(r['Shrinkage %']), left: r['People Left (H1)'] == null || r['People Left (H1)'] === '' ? null : +r['People Left (H1)'] };
+    const i = (s.inp = s.inp || {}), set = (f, v) => { if (v != null && !isNaN(v)) i[f] = v; };
+    set('audit', val(r['Audit Score %'])); set('shrink', val(r['Shrinkage %'])); set('left', val(r['People Left (H1)']));
   }
 }
 
