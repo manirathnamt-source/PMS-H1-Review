@@ -250,13 +250,14 @@ function compute() {
       if (per.length > 1) flags.push(`Billed in ${per.length} stores`);
       if (bills && !per.some(x => x.o === p.outlet)) flags.push('No billing at listed outlet');
     }
-    if (!st.hasData) flags.push('No store data');
+    const newStore = !st.hasData;
+    if (newStore) flags.length = 0, flags.push('New store – not rated for H1');
     let sc = 0, sw = 0;
     for (const [k, wt] of Object.entries(w)) if (rt[k] != null) { sc += wt * rt[k]; sw += wt; }
     const pending = Object.keys(w).filter(k => rt[k] == null);
     const score = pending.length ? null : sc;
-    const prov = sw ? sc / sw : null;     // provisional: re-weighted over KPIs that have data
-    return { ...p, st, rt, ach, ind, flags, pending, score, prov, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
+    const prov = sw && !newStore ? sc / sw : null;     // provisional: re-weighted over KPIs that have data; new stores are not rated
+    return { ...p, st, rt, ach, ind, flags, pending, score: newStore ? null : score, prov, newStore, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
   });
 }
 

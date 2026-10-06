@@ -12,7 +12,7 @@ const MLAB = { '2026-04': 'Apr', '2026-05': 'May', '2026-06': 'Jun', '2026-07': 
 const here = p => path.join(__dirname, p);
 // one key for a store across all sources: upper-case, drop "(CODE)", collapse spaces
 // calibration-sheet spellings that differ from the sales/target/conversion files
-const ALIAS = { 'BLR - KR PURAM': 'BLR - K R PURAM', 'INFANTRY ROAD - BELLARI': 'BLY - INFANTRY ROAD' };
+const ALIAS = { 'BLR - AECS LAYOUT': 'BLR - BROOKEFIELD', 'BLR - KR PURAM': 'BLR - K R PURAM', 'INFANTRY ROAD - BELLARI': 'BLY - INFANTRY ROAD' };
 const key = s => { const k = String(s || '').replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim().toUpperCase(); return ALIAS[k] || k; };
 const num = v => typeof v === 'number' ? v : +String(v || '').replace(/[₹,\s]/g, '') || 0;
 const xdate = v => typeof v === 'number' ? new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10)
