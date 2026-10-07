@@ -3,7 +3,8 @@
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), X = require('xlsx');
 const DL = 'C:/Users/Lenovo/Downloads/';
 const SRC = {
-  calib: DL + 'PMS Retail Calibration _ KA _KL _ Mide Year Review.xlsx',
+  roster: DL + 'Eligibility List _ Pan India_ 26-27.xlsx',
+  attrition: DL + 'Retail Attrition Data _ Pan India.xlsx',
   targets: DL + 'Targets.xlsx',
   conv: DL + 'conversion-data (1).csv',
 };
@@ -11,10 +12,17 @@ const ELIG_DOJ_CUTOFF = '2026-07-31';
 const MONTHS = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
 const MLAB = { '2026-04': 'Apr', '2026-05': 'May', '2026-06': 'Jun', '2026-07': 'Jul', '2026-08': 'Aug', '2026-09': 'Sep' };
 const here = p => path.join(__dirname, p);
-// one key for a store across all sources: upper-case, drop "(CODE)", collapse spaces
-// calibration-sheet spellings that differ from the sales/target/conversion files
-const ALIAS = { 'BLR - AECS LAYOUT': 'BLR - BROOKEFIELD', 'BLR - KR PURAM': 'BLR - K R PURAM', 'INFANTRY ROAD - BELLARI': 'BLY - INFANTRY ROAD' };
-const key = s => { const k = String(s || '').replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim().toUpperCase(); return ALIAS[k] || k; };
+// one key for a store across all sources: upper-case, drop "(CODE)", collapse spaces, normalise the first dash to " - "
+// HR-roster spellings that differ from the sales/target/conversion files
+const ALIAS = {
+  'BLR - AECS LAYOUT': 'BLR - BROOKEFIELD', 'BLR - KR PURAM': 'BLR - K R PURAM', 'INFANTRY ROAD - BELLARI': 'BLY - INFANTRY ROAD',
+  'DLF MIDTOWN - DELHI': 'DEL - DLF MIDTOWN MALL', 'M3M, SECTOR 65 - GURUGRAM': 'GUR - M3M ROUTE 65', 'ERODE - PERUNDURAI ROAD': 'ERD - PERUNDURAI ROAD',
+  'BAILEY SQUARE - PATNA': 'PTN - BAILEY SQUARE MALL', 'MUM - NEXUS SEAWOOD MALL': 'MUM - NEXUS SEAWOODS MALL', 'MODEL TOWN - JALANDHAR': 'JLR - ANIKI TOWER MODEL TOWN',
+};
+const key = s => {
+  const k = String(s || '').replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim().toUpperCase().replace(/\s*[-–]\s*/, ' - ');
+  return ALIAS[k] || k;
+};
 const num = v => typeof v === 'number' ? v : +String(v || '').replace(/[₹,\s]/g, '') || 0;
 const xdate = v => typeof v === 'number' ? new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10)
   : v ? new Date(v + ' UTC').toISOString().slice(0, 10) : '';
@@ -101,33 +109,42 @@ if (fs.existsSync(SRC.inputs)) {
   }
 }
 
-// 4. calibration roster (eligibility list) — parse by header label, never fixed index
-const people = [];
+// 3d. attrition: store-wise exits Apr–Sep (SM KPI uses the exit count) + exit list for the drill-down
 {
-  const wb = X.readFile(SRC.calib);
-  const ROLE = { 'SM sheet': 'SM', 'ASM sheet': 'ASM', 'SSA-SA sheet': 'SSA' };
-  for (const sn of wb.SheetNames) {
-    const role = ROLE[sn.trim()]; if (!role) continue;
-    const rows = X.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: null });
-    const h = rows[1].map(x => String(x || '').trim());
-    const g = (r, label) => r[h.indexOf(label)];
-    for (const r of rows.slice(2)) {
-      const id = String(g(r, 'Emp ID') || '').trim(); if (!id) continue;
-      const outlet = key(g(r, 'Outlet Name'));
-      const sales = empSales[id] || {};
-      people.push({
-        id, role, name: String(g(r, 'Names') || '').trim(), desig: g(r, 'Designation'), grade: g(r, 'Group'),
-        outlet, gender: g(r, 'Gender'), doj: xdate(g(r, 'DOJ')), conf: String(g(r, 'Confirmation') || '').trim(),
-        state: g(r, 'State'), status: g(r, 'Working Status'),
-        // eligibility rule agreed with HR: active and joined on/before 31 Jul 2026 (the sheet's own column is kept for reference only)
-        eligible: xdate(g(r, 'DOJ')) <= ELIG_DOJ_CUTOFF && /^active$/i.test(String(g(r, 'Working Status') || '').trim()),
-        sheetEligible: /^eligible$/i.test(String(g(r, 'Eligible for  review') || '').trim()),
-        cm: g(r, 'Curr.Clustermanager') || S(outlet).cm || '', am: g(r, 'Curr.Areamanager') || S(outlet).rm || '',
-        sales: role === 'SSA' ? sales : undefined,
-      });
-    }
+  const wb = X.readFile(SRC.attrition);
+  for (const r of X.utils.sheet_to_json(wb.Sheets['Attrition Analysis Report'], { defval: null })) {
+    const k = key(r['Store Wise']); if (!k || /GRAND TOTAL/.test(k)) continue;
+    const s = S(k), i = (s.inp = s.inp || {});
+    Object.assign(i, { left: num(r['Exit Counts']), open: num(r['Opening Balance']), joiners: num(r['New Joiners']), close: num(r['Closing Balance']), attrPct: num(r['Attrition %']) * 100 });
+    if (r.CM) s.cmA = String(r.CM).trim();
+    if (r.RM) s.rmA = String(r.RM).trim();
+  }
+  for (const r of X.utils.sheet_to_json(wb.Sheets['Exit List'], { defval: null })) {
+    const s = S(key(r['Curr.Branch'])), i = (s.inp = s.inp || {});
+    (i.exits = i.exits || []).push({ id: String(r['E Code']), name: r['Employee Name'], desig: r['Curr.Designation'], doj: xdate(r['Date Of Joining']), left: xdate(r['Leaving Date']) });
   }
 }
+
+// 4. roster: pan-India eligibility list (HR). Eligible = its "Eligible for review" column (= joined on/before 31 Jul 2026)
+const ROLE = d => /^store manager$/i.test(d) ? 'SM' : /^assistant store manager$/i.test(d) ? 'ASM' : /style associate/i.test(d) ? 'SSA' : null;
+const people = [], skipped = {};
+{
+  const rows = X.utils.sheet_to_json(X.readFile(SRC.roster).Sheets.Sheet1, { defval: null });
+  for (const r of rows) {
+    const id = String(r['Employee Number'] || '').trim(); if (!id) continue;
+    const desig = String(r['Curr.Designation'] || '').trim(), role = ROLE(desig);
+    if (!role) { skipped[desig] = (skipped[desig] || 0) + 1; continue; }
+    const outlet = key(r['Curr.Branch']), s = S(outlet), doj = xdate(r['Date Of Joining']);
+    const eligible = /^eligible$/i.test(String(r['Eligible for  review'] || '').trim());
+    if (eligible !== (doj <= ELIG_DOJ_CUTOFF)) console.warn('eligibility differs from DOJ rule:', id, r['Employee Name'], doj);
+    people.push({
+      id, role, name: String(r['Employee Name'] || '').trim(), desig, grade: r['Curr.Band'] || r['Curr.Grade'], outlet, doj,
+      state: r['Curr.Location'], eligible, cm: s.cmA || s.cm || '', am: s.rmA || s.rm || '',
+      sales: role === 'SSA' ? (empSales[id] || {}) : undefined,
+    });
+  }
+}
+console.log('roster roles skipped (no KPI template here):', skipped);
 
 // 5. coverage report
 const used = new Set(people.map(p => p.outlet));

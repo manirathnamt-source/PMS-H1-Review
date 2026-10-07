@@ -358,6 +358,7 @@ function storeH1(k) {
     wi, cb, tB, tW, conv, convT, convPct: conv != null && convT ? conv / convT * 100 : null, convMonths: cm.length,
     netI, qtyI, billsI, abv: billsI ? netI / billsI : null, upt: billsI ? qtyI / billsI : null,
     audit, shrink: inp.shrink ?? null, left: inp.left ?? null, scores: inp.scores || [], audits: inp.audits || [],
+    open: inp.open ?? null, joiners: inp.joiners ?? null, close: inp.close ?? null, attrPct: inp.attrPct ?? null, exits: inp.exits || [],
   };
   r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(r.shrink), attr: rateAttr(r.left) };
   return STORES[k] = r;
@@ -403,7 +404,7 @@ function compute() {
 /* ---------- shell ---------- */
 const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['RULES', 'How ratings work']];
 function initUI() {
-  $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Karnataka & Kerala · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Pan India · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
   $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; render(); };
   const opts = (el, label, vals) => { el.innerHTML = `<option value="">${label}</option>` + [...new Set(vals)].filter(Boolean).sort().map(v => `<option>${esc(v)}</option>`).join(''); };
   opts($('#fState'), 'All states', PEOPLE.map(p => p.state));
@@ -466,6 +467,10 @@ function bindSort(rerender) {
   document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => { const s = th.dataset.s; UI.dir = UI.sort === s ? -UI.dir : (th.classList.contains('num') ? -1 : 1); UI.sort = s; rerender(); });
 }
 function storesIn(list) { return [...new Set(list.map(p => p.outlet))].map(storeH1).filter(s => s.hasData); }
+function topBottom(stores) {
+  const r = stores.filter(s => s.salesPct != null).sort((a, b) => b.salesPct - a.salesPct);
+  return r.length <= 20 ? r : [...r.slice(0, 10), ...r.slice(-10)];
+}
 function storeChart(stores, title, hint) {
   const rows = stores.filter(s => s.salesPct != null).sort((a, b) => b.salesPct - a.salesPct);
   const max = Math.max(130, ...rows.map(s => s.salesPct)), x = v => v / max * 100;
@@ -511,7 +516,7 @@ function renderOverview(base) {
      <div class="card"><h2>Rating mix by role</h2><p class="hint">Hover a segment for counts.</p>${roleRows}${legend('<span><i style="background:var(--axis)"></i>Not rated</span>')}</div></div>
     <div class="card"><h2>Cluster Manager scorecard</h2><p class="hint">Store KPIs rolled up across each CM's stores, with the rating mix of their team. Click a row to filter the dashboard to that CM.</p>
     <div class="tbl-wrap"><table><thead><tr><th>Cluster Manager</th><th class="num">Stores</th><th class="num">People</th><th class="num bl">Sales ach.</th><th class="num">Conv. ach.</th><th class="num">Ops score</th><th class="num bl">Avg score</th><th>Rating mix</th></tr></thead><tbody>${cmTable}</tbody></table></div></div>
-    <div class="grid2">${storeChart(stores, 'Sales achievement by store', 'H1 store sales excluding e-commerce ÷ target. Dashed lines mark the 70% and 90% rating bands. Click a bar for details.')}
+    <div class="grid2">${storeChart(topBottom(stores), 'Top 10 and bottom 10 stores on sales', 'H1 store sales excluding e-commerce ÷ target. Dashed lines mark the 70% and 90% rating bands. The full list is in the Stores tab.')}
     <div class="card"><h2>Rating mix by Cluster Manager</h2><p class="hint">All roles together.</p>${cmRows}${legend()}</div></div>`;
   document.querySelectorAll('tr[data-cm]').forEach(tr => tr.onclick = () => { $('#fCm').value = tr.dataset.cm; UI.tab = 'SM'; render(); });
   document.querySelectorAll('.hrow[data-k]').forEach(r => r.onclick = () => openStore(r.dataset.k));
@@ -557,7 +562,7 @@ function renderStores() {
   const keys = [...new Set(PEOPLE.map(p => p.outlet))];
   let list = keys.map(storeH1).map(s => ({ ...s, people: PEOPLE.filter(p => p.outlet === s.key) }))
     .filter(s => (!st || s.people.some(p => p.state === st)) && (!rm || s.people.some(p => p.rmN === rm)) && (!cm || s.people.some(p => p.cmN === cm)) && (!q || (s.name + ' ' + s.code).toLowerCase().includes(q)));
-  const G = { name: s => s.name, sales: s => s.sales, target: s => s.target, salesPct: s => s.salesPct, conv: s => s.conv, convPct: s => s.convPct, abv: s => s.abv, upt: s => s.upt, audit: s => s.audit, shrink: s => s.shrink, hc: s => s.people.length };
+  const G = { name: s => s.name, sales: s => s.sales, target: s => s.target, salesPct: s => s.salesPct, conv: s => s.conv, convPct: s => s.convPct, abv: s => s.abv, upt: s => s.upt, audit: s => s.audit, shrink: s => s.shrink, left: s => s.left, hc: s => s.people.length };
   const sorted = sortRows(list, G);
   const tS = sum(list, s => s.sales), tT = sum(list, s => s.target), sp = tT ? tS / tT * 100 : null;
   const live = list.filter(s => s.hasData);
@@ -571,12 +576,13 @@ function renderStores() {
   ${storeChart(live, 'Sales achievement by store', 'H1 store sales excluding e-commerce ÷ target. Dashed lines mark the 70% and 90% rating bands. Click a bar for details.')}
   <div class="tbl-wrap"><table><thead><tr><th data-s="name">Store</th><th class="num bl" data-s="sales"><span class="kdot" style="background:var(--k-sales)"></span>H1 sales</th><th class="num" data-s="target">Target</th><th class="num" data-s="salesPct">Achievement</th>
   <th class="num bl" data-s="conv"><span class="kdot" style="background:var(--k-conv)"></span>Conv.</th><th class="num">Target</th><th class="num" data-s="convPct">Achievement</th>
-  <th class="num bl" data-s="abv"><span class="kdot" style="background:var(--k-abv)"></span>ABV</th><th class="num" data-s="upt">UPT</th><th class="num bl" data-s="audit"><span class="kdot" style="background:var(--k-audit)"></span>Ops</th><th class="num" data-s="shrink"><span class="kdot" style="background:var(--k-shrink)"></span>Shrink</th><th class="num" data-s="hc">Staff</th></tr></thead><tbody>
+  <th class="num bl" data-s="abv"><span class="kdot" style="background:var(--k-abv)"></span>ABV</th><th class="num" data-s="upt">UPT</th><th class="num bl" data-s="audit"><span class="kdot" style="background:var(--k-audit)"></span>Ops</th><th class="num" data-s="shrink"><span class="kdot" style="background:var(--k-shrink)"></span>Shrink</th><th class="num" data-s="left"><span class="kdot" style="background:var(--k-attr)"></span>Exits</th><th class="num" data-s="hc">Staff</th></tr></thead><tbody>
   ${sorted.map(s => `<tr data-k="${esc(s.key)}"><td><div class="who"><div class="av" style="--avc:var(--r${s.rt.sales || 1});${s.hasData ? '' : 'background:var(--axis)'}">${esc(initials(tc(s.name).replace(/^\w+ - /, '')))}</div><div><div class="nm">${esc(tc(s.name))}</div><div class="meta">${esc(s.code)} · ${esc(s.people[0]?.cmN || s.cm)}${s.hasData ? '' : ' · new store'}</div></div></div></td>
     <td class="num bl">${fmtL(s.sales)}</td><td class="num">${fmtL(s.target)}</td><td class="num">${achCell(s.salesPct, s.rt.sales, 1)}</td>
     <td class="num bl">${fmtP(s.conv, 1)}</td><td class="num">${fmtP(s.convT, 1)}</td><td class="num">${achCell(s.convPct, s.rt.conv)}</td>
     <td class="num bl">${fmtR(s.abv)}</td><td class="num">${fmtN(s.upt, 2)}</td>
     <td class="num bl">${fmtP(s.audit, 0)} ${chip(s.rt.audit)}</td><td class="num">${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'} ${chip(s.rt.shrink)}</td>
+    <td class="num">${s.left ?? '–'} ${chip(s.rt.attr)}</td>
     <td class="num">${s.people.length}</td></tr>`).join('')}</tbody></table></div>`;
   bindSort(renderStores);
   $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-k]'); if (tr) openStore(tr.dataset.k); };
@@ -601,6 +607,12 @@ function opsCard(s) {
   ${s.audits.map(a => `<tr><td>${esc(a.date)}</td><td>${esc(a.auditor)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${fmtN(a.qty)}</td><td class="num">${a.sale ? (-a.value / a.sale * 100).toFixed(3) + '%' : '–'}</td></tr>`).join('')}
   <tr style="background:var(--surface-2)"><td colspan="5"><b>H1 net loss ÷ store sale</b></td><td class="num"><b>${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'}</b> ${chip(s.rt.shrink)}</td></tr></tbody></table></div>` : ''}</div>`;
 }
+function attrCard(s) {
+  if (s.left == null) return '';
+  return `<div class="card"><h2>Attrition, Apr–Sep</h2><p class="hint">Opening ${s.open} · joiners ${s.joiners} · exits ${s.left} · closing ${s.close} · attrition ${fmtP(s.attrPct, 1)} · SM attrition rating ${chip(s.rt.attr)}</p>
+  ${s.exits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Left</th><th>Employee</th><th>Designation</th><th>Joined</th></tr></thead><tbody>
+  ${s.exits.slice().sort((a, b) => a.left.localeCompare(b.left)).map(x => `<tr><td>${esc(x.left)}</td><td>${esc(x.name)} <span class="muted">${esc(x.id)}</span></td><td>${esc(x.desig)}</td><td>${esc(x.doj)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nobody left this store in H1.</p>'}</div>`;
+}
 function drawer(head, body) {
   $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div class="dhead">${head}<span class="spacer"></span><button class="hbtn" id="dClose">Close</button></div><div class="dbody">${body}</div></aside>`;
   const close = () => { $('#drawerHost').innerHTML = ''; document.removeEventListener('keydown', onKey); };
@@ -616,11 +628,11 @@ function openPerson(id, role) {
     upt: p.ind ? `Own ${fmtN(p.ind.upt, 2)} vs store ${fmtN(p.ind.sUpt, 2)}` : '',
     audit: s.audit == null ? 'Awaiting scorecard' : `Store scorecard avg ${fmtP(s.audit)} (${s.scores.length || 1} months)`,
     shrink: s.shrink == null ? 'Awaiting shrinkage' : `Store shrinkage ${s.shrink.toFixed(3)}% (${s.audits.length || 1} stock audits)`,
-    attr: s.left == null ? 'Awaiting attrition data' : `${s.left} people left in H1`,
+    attr: s.left == null ? 'Awaiting attrition data' : `${s.left} people left the store in H1 (opening ${s.open}, joiners ${s.joiners}, attrition ${fmtP(s.attrPct, 0)})`,
   };
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
   drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
-  `<div class="kv"><div><b>Grade</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>Confirmation</b>${esc(p.conf || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
+  `<div class="kv"><div><b>Band</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>State</b>${esc(p.state || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
   ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
   <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
   <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
@@ -631,7 +643,7 @@ function openPerson(id, role) {
   <div class="tbl-wrap"><table><thead><tr><th>Store</th><th class="num">Sales</th><th class="num">Bills</th><th class="num">ABV</th><th class="num">Store ABV</th><th class="num">UPT</th><th class="num">Store UPT</th></tr></thead><tbody>
   ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">${fmtR(x.bills ? x.net / x.bills : null)}</td><td class="num">${fmtR(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
   </tbody></table></div></div>` : ''}
-  <div class="card"><h2>Store month by month · ${esc(tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}`);
+  <div class="card"><h2>Store month by month · ${esc(tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
 }
 function weightBar(w, rt) {
   return `<div class="wbar">${Object.entries(w).map(([k, v]) => `<div style="flex:${v};background:${KCOL(k)}" data-tip="${KPI_LABEL[k]}: weight ${Math.round(v * 100)}%${rt ? `, rating ${rt[k] ?? 'pending'}` : ''}">${KPI_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div>`;
@@ -640,7 +652,7 @@ function openStore(k) {
   const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k);
   drawer(`<div class="av" style="--avc:var(--r${s.rt.sales || 1});width:46px;height:46px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${ICON.store.replace('<svg', '<svg width="22" height="22"')}</div><div><h3>${esc(tc(s.name))}</h3><div class="sub">${esc(s.code)} · ${esc(ppl[0]?.cmN || s.cm)} · ${esc(ppl[0]?.rmN || s.rm)}</div></div>`,
   `<div class="tiles">${tile(`var(--r${s.rt.sales || 1})`, 'rupee', 'Sales vs target', fmtP(s.salesPct), `${fmtL(s.sales)} of ${fmtL(s.target)}`, s.salesPct)}${tile(`var(--r${s.rt.conv || 1})`, 'door', 'Conversion', fmtP(s.conv), `target ${fmtP(s.convT)}`, s.convPct)}${tile('var(--k-audit)', 'clip', 'Ops scorecard', fmtP(s.audit), 'Apr–Aug average')}</div>
-  <div class="card"><h2>Month by month</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}
+  <div class="card"><h2>Month by month</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}
   <div class="card"><h2>Team (${ppl.length})</h2><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Role</th><th class="num">Score</th><th class="num">Rating</th></tr></thead><tbody>
   ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td><td>${esc(p.desig)}</td><td class="num">${fmtN(p.score ?? p.prov, 2)}</td><td class="num">${ratingChip(p)}</td></tr>`).join('')}
   </tbody></table></div></div>`);
@@ -720,11 +732,11 @@ function renderRules() {
       <div class="result"><span class="eq">₹${fmtN(Math.abs(sum(s.audits, a => a.value)))} ÷ ${fmtL(sum(s.audits, a => a.sale))} = <b>${s.shrink.toFixed(3)}%</b></span> → ${chip(s.rt.shrink)}</div></div></div>` : '<p class="muted">No stock audits for this store.</p>');
 
   const attr = kpiSection('attr', '7 · Attrition (Store Manager only)',
-    `Counted as <code>people who left the store during H1</code>: 4 or more = 0 · 3 = 1 · 2 = 2 · 1 = 3 · nobody = 4.`,
+    `Counted as <code>people who left the store Apr–Sep</code> (exit count in the Retail Attrition report, all designations): 4 or more = 0 · 3 = 1 · 2 = 2 · 1 = 3 · nobody = 4.`,
     `<div class="steps"><div><b>Example</b><p>If 2 team members left between April and September, attrition rating = <b>2</b> and it adds 0.10 × 2 = <b>0.20</b> to the Store Manager's score.</p></div>
      <div>${scale([{ r: 0, to: 1 }, { r: 1, to: 2 }, { r: 2, to: 3 }, { r: 3, to: 4 }, { r: 4, to: 5 }], [0, 5], null, t => '')}
      <div class="labs" style="display:flex;justify-content:space-around;font-size:11px;color:var(--muted)"><span>4+ left</span><span>3</span><span>2</span><span>1</span><span>0 left</span></div>
-     <div class="result">${s.left == null ? 'Attrition data has not been uploaded yet, so every Store Manager is provisional (*) for now.' : `${sN}: ${s.left} left → ${chip(s.rt.attr)}`}</div></div></div>`);
+     <div class="result">${s.left == null ? 'No attrition data for this store.' : `${sN}: opening ${s.open}, joiners ${s.joiners}, <b>${s.left} left</b> Apr–Sep → ${chip(s.rt.attr)} <span class="muted">(store attrition ${fmtP(s.attrPct, 0)})</span>`}</div></div></div>`);
 
   const finalEx = p => {
     if (!p) return '';
@@ -745,8 +757,8 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li>
-    <li><b>Eligibility:</b> active employees who joined on or before 31 Jul 2026, part-timers included (the calibration sheet's own Eligible column is not used).</li><li>PMS Retail Calibration, KA &amp; KL mid-year review: roster. AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li>
+    <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
     ${weights}${sales}${conv}${abvupt}${audit}${shrink}${attr}${final}${sources}`;
