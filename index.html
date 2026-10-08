@@ -657,6 +657,15 @@ function attrCard(s) {
   ${s.exits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Left</th><th>Employee</th><th>Designation</th><th>Joined</th></tr></thead><tbody>
   ${s.exits.slice().sort((a, b) => a.left.localeCompare(b.left)).map(x => `<tr><td>${esc(x.left)}${x.store ? `<div class="cellsub">${esc(tc(x.store))}</div>` : ''}</td><td>${esc(x.name)} <span class="muted">${esc(x.id)}</span></td><td>${esc(x.desig)}</td><td>${esc(x.doj)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nobody left this store in H1.</p>'}</div>`;
 }
+function attCard(p) {
+  if (!p.att) return '';
+  const stores = [...new Set(D.months.flatMap(m => Object.keys(p.att[m] || {})))].sort((a, b) => sum(D.months, m => -((p.att[m] || {})[a] || 0)) - sum(D.months, m => -((p.att[m] || {})[b] || 0)));
+  const used = m => p.monthStores ? p.monthStores[m] : [p.outlet];
+  return `<div class="card"><h2>Attendance swipes, days per store</h2><p class="hint">A month counts for a store when the person swiped there on <b>more than 15 days</b>. Highlighted = store(s) used for the rating that month.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Store</th>${D.months.map(m => `<th class="num">${mL(m)}</th>`).join('')}</tr></thead><tbody>
+  ${stores.map(k => `<tr><td>${esc(tc(k))}</td>${D.months.map(m => { const n = (p.att[m] || {})[k]; const on = used(m).includes(k); return `<td class="num" style="${on ? 'background:color-mix(in srgb, var(--r4) 16%, transparent);font-weight:700' : ''}">${n ? n + (n > 15 ? ' ✓' : '') : '<span class="muted">–</span>'}</td>`; }).join('')}</tr>`).join('')}
+  </tbody></table></div></div>`;
+}
 function drawer(head, body) {
   $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div class="dhead">${head}<span class="spacer"></span><button class="hbtn" id="dClose">Close</button></div><div class="dbody">${body}</div></aside>`;
   const close = () => { $('#drawerHost').innerHTML = ''; document.removeEventListener('keydown', onKey); };
@@ -687,7 +696,7 @@ function openPerson(id, role) {
   <div class="tbl-wrap"><table><thead><tr><th>Store</th><th class="num">Sales</th><th class="num">Bills</th><th class="num">ABV</th><th class="num">Store ABV</th><th class="num">UPT</th><th class="num">Store UPT</th></tr></thead><tbody>
   ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">${fmtR(x.bills ? x.net / x.bills : null)}</td><td class="num">${fmtR(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
   </tbody></table></div></div>` : ''}
-  <div class="card"><h2>Store month by month · ${esc(s.mixed ? s.name : tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
+  ${attCard(p)}<div class="card"><h2>Store month by month · ${esc(s.mixed ? s.name : tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
 }
 function weightBar(w, rt) {
   return `<div class="wbar">${Object.entries(w).map(([k, v]) => `<div style="flex:${v};background:${KCOL(k)}" data-tip="${KPI_LABEL[k]}: weight ${Math.round(v * 100)}%${rt ? `, rating ${rt[k] ?? 'pending'}` : ''}">${KPI_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div>`;
@@ -801,7 +810,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from the HR “Monthly Store Map” sheet if HR changed it; otherwise from the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for Store Managers and ASMs, <b>attendance swipes: the store where they swiped on more than 15 days that month</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>

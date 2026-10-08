@@ -11,11 +11,15 @@ const data = require('./out/data.json');
 const auto = require('./out/auto-store-map.json');
 const up = v => String(v || '').trim().toUpperCase();
 
-// existing HR values win over the automatic ones
+// existing HR edits win over the automatic values. A cell is an HR edit only if it differs from what the sheet was pre-filled with
+// (the baseline written last time); untouched cells are refreshed with the latest automatic value.
+const BASE = __dirname + '/out/store-map-baseline.json';
+const baseline = fs.existsSync(BASE) ? JSON.parse(fs.readFileSync(BASE)) : {};
 const existing = {};
 if (fs.existsSync(OUT)) for (const r of X.utils.sheet_to_json(X.readFile(OUT).Sheets['Store Map'], { defval: null })) {
   const id = String(r['Emp ID'] || '').trim(); if (!id) continue;
-  existing[id] = { months: Object.fromEntries(MONTHS.map(m => [m, up(r[MLAB[m]])]).filter(([, v]) => v)), also: up(r[ALSO]), check: r.Check };
+  const edited = MONTHS.map(m => [m, up(r[MLAB[m]])]).filter(([m, v]) => v && (!baseline[id] || baseline[id][m] !== v));
+  existing[id] = { months: Object.fromEntries(edited), also: up(r[ALSO]) };
 }
 // --set 1234:also=BLR - ARS COMPLEX MALLESHWARAM  (values given in chat, applied as if HR picked them)
 process.argv.forEach((a, i, all) => {
@@ -35,8 +39,8 @@ const rows = auto
     const months = Object.fromEntries(MONTHS.map(m => [MLAB[m], ex.months[m] || p.months[m]]));
     const byHR = ex.also || MONTHS.some(m => ex.months[m] && ex.months[m] !== p.months[m]);
     const moved = MONTHS.some(m => months[MLAB[m]] !== p.outlet);
-    const check = byHR || ex.check === 'Changed by HR' || ex.check === 'Entered earlier by HR' ? 'Changed by HR'
-      : moved ? 'Moved per billing – please confirm' : '';
+    const how = [...new Set(MONTHS.filter(m => p.months[m] !== p.outlet).map(m => (p.src || {})[m]).filter(Boolean))].join(' + ') || 'billing';
+    const check = byHR ? 'Changed by HR' : moved ? `Moved per ${how} – please confirm` : '';
     return { 'Emp ID': p.id, 'Employee Name': p.name, 'Designation': p.desig, 'Current Branch': p.outlet, ...months, [ALSO]: ex.also || '', 'Check': check };
   });
 
@@ -71,6 +75,7 @@ const buf = X.write(wb, { type: 'buffer', bookType: 'xlsx' });
   xml = xml.includes('<pageMargins') ? xml.replace('<pageMargins', dv + '<pageMargins') : xml.replace('</worksheet>', dv + '</worksheet>');
   zip.file(f, xml);
   fs.writeFileSync(OUT, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+  fs.writeFileSync(BASE, JSON.stringify(Object.fromEntries(auto.map(p => [p.id, p.months]))));   // what untouched cells now hold
   const c = rows.reduce((a, r) => (a[r.Check || 'no change'] = (a[r.Check || 'no change'] || 0) + 1, a), {});
   console.log('written', rows.length, 'rows,', storeList.length, 'stores in dropdown', c, 'also-handles:', rows.filter(r => r[ALSO]).map(r => `${r['Emp ID']} → ${r[ALSO]}`));
 })();

@@ -147,35 +147,68 @@ const people = [], skipped = {};
 }
 console.log('roster roles skipped (no KPI template here):', skipped);
 
-// 4b. store for each person, month by month. Priority: HR store-map sheet > billing (store with most bills, ≥ MIN_MONTH_BILLS) > roster branch.
-// Anyone whose months don't all match their roster branch gets "stints" and is rated month by month on the store they were in.
-const MIN_MONTH_BILLS = 10;
+// 4b. store for each person, month by month. Priority:
+//   HR edit in the store-map sheet > attendance (SM/ASM: > ATT_MIN_DAYS swipe days at one store) > billing (store with most bills, ≥ MIN_MONTH_BILLS) > roster branch.
+// Anyone whose months don't all match their roster branch gets monthStores and is rated month by month on the store(s) they ran.
+const MIN_MONTH_BILLS = 10, ATT_MIN_DAYS = 15;
 SRC.storeMap = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - Monthly Store Map.xlsx';
+SRC.swipes = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/H1 attendance swipes/';
+// the values the sheet was pre-filled with (written by make-store-map.js); a cell only counts as an HR edit if it differs from these
+const baseline = fs.existsSync(here('out/store-map-baseline.json')) ? JSON.parse(fs.readFileSync(here('out/store-map-baseline.json'))) : null;
 const hrMap = {}, hrAlso = {};
 if (fs.existsSync(SRC.storeMap)) {
   for (const r of X.utils.sheet_to_json(X.readFile(SRC.storeMap).Sheets['Store Map'], { defval: null })) {
     const id = String(r['Emp ID'] || '').trim(); if (!id) continue;
-    for (const m of MONTHS) { const v = r[MLAB[m]]; if (v) (hrMap[id] = hrMap[id] || {})[m] = key(v); }
+    for (const m of MONTHS) {
+      const v = r[MLAB[m]] ? key(r[MLAB[m]]) : ''; if (!v) continue;
+      if (!baseline || !baseline[id] || baseline[id][m] !== v) (hrMap[id] = hrMap[id] || {})[m] = v;
+    }
     if (r['Also Handles']) hrAlso[id] = key(r['Also Handles']);   // second store run together with the main one, whole H1
   }
+}
+// attendance swipes (SM/ASM): distinct swipe days per store per month
+const doorMap = JSON.parse(fs.readFileSync(here('door-map.json')));
+const attDays = {};   // attDays[id][month][store] = days
+if (fs.existsSync(SRC.swipes)) {
+  const unmapped = {};
+  for (const f of fs.readdirSync(SRC.swipes).filter(f => /\.xlsx$/i.test(f) && !f.startsWith('~$'))) {
+    for (const r of X.utils.sheet_to_json(X.readFile(SRC.swipes + f).Sheets.Sheet0 || X.readFile(SRC.swipes + f).Sheets[X.readFile(SRC.swipes + f).SheetNames[0]], { defval: null, raw: false })) {
+      const id = String(r['Employee No'] || '').trim(), door = String(r['Door/Address'] || '').trim(), dt = new Date(String(r['Swipe Date'] || '').slice(0, 11) + ' UTC');
+      if (!id || isNaN(dt)) continue;
+      const m = dt.toISOString().slice(0, 7), day = dt.toISOString().slice(0, 10), st = doorMap[door];
+      if (!st) { unmapped[door] = (unmapped[door] || 0) + 1; continue; }
+      if (!MONTHS.includes(m)) continue;
+      const o = (((attDays[id] = attDays[id] || {})[m] = attDays[id][m] || {})[st] = attDays[id][m][st] || new Set());
+      o.add(day);
+    }
+  }
+  for (const id in attDays) for (const m in attDays[id]) for (const st in attDays[id][m]) attDays[id][m][st] = attDays[id][m][st].size;
+  if (Object.keys(unmapped).length) console.warn('swipe doors not in door-map.json (add them):', unmapped);
 }
 const isStore = k => !!(stores[k] && stores[k].code);                         // a real store with a target row
 const hasH1 = k => Object.values((stores[k] || {}).m || {}).some(x => x.sales);  // new stores have no H1 sales
 const autoMap = [];
 for (const p of people) {
-  const months = {}, defaults = {}, src = {}, detect = hasH1(p.outlet);   // staff of new stores stay unrated unless HR maps them
+  const months = {}, defaults = {}, dsrc = {}, src = {}, detect = hasH1(p.outlet);   // staff of new stores stay unrated unless HR maps them
+  const useAtt = (p.role === 'SM' || p.role === 'ASM') && attDays[p.id];
+  if (useAtt) p.att = attDays[p.id];   // shown in the drill-down
   for (const m of MONTHS) {
     const bills = (empMonth[p.id] || {})[m] || {};
     const [top, n] = Object.entries(bills).filter(([k]) => isStore(k)).sort((a, b) => b[1] - a[1])[0] || [];
-    const def = detect && n >= MIN_MONTH_BILLS ? top : p.outlet, defSrc = def === p.outlet ? 'roster' : 'billing';
+    const [aTop, aDays] = useAtt ? Object.entries(attDays[p.id][m] || {}).sort((a, b) => b[1] - a[1])[0] || [] : [];
+    let def, defSrc;
+    if (aDays > ATT_MIN_DAYS && (isStore(aTop) || aTop === p.outlet)) { def = aTop; defSrc = 'attendance'; }
+    else if (detect && n >= MIN_MONTH_BILLS) { def = top; defSrc = 'billing'; }
+    else { def = p.outlet; defSrc = 'roster'; }
+    if (def === p.outlet && defSrc !== 'attendance') defSrc = 'roster';
     const hr = (hrMap[p.id] || {})[m];
     const hrOk = hr && (isStore(hr) || hr === p.outlet);
     if (hr && !hrOk) console.warn('store map: unknown store', p.id, m, hr);
-    defaults[m] = def;
+    defaults[m] = def; dsrc[m] = defSrc;
     if (hrOk) { months[m] = hr; src[m] = hr === def ? defSrc : 'HR sheet'; }
     else { months[m] = def; src[m] = defSrc; }
   }
-  autoMap.push({ id: p.id, name: p.name, desig: p.desig, role: p.role, outlet: p.outlet, eligible: p.eligible, months: defaults });
+  autoMap.push({ id: p.id, name: p.name, desig: p.desig, role: p.role, outlet: p.outlet, eligible: p.eligible, months: defaults, src: dsrc });
   const also = hrAlso[p.id];
   if (also && !isStore(also)) console.warn('store map: unknown "Also Handles" store', p.id, also);
   // stores per month: main store, plus the clubbed store when one person runs both
