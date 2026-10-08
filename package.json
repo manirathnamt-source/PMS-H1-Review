@@ -1,0 +1,9 @@
+{
+  "name": "pms-h1-review",
+  "private": true,
+  "description": "Build scripts for the H1 PMS review dashboard",
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

@@ -392,12 +392,14 @@ function stintStore(p) {
   r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(shrink), attr: rateAttr(left) };
   return r;
 }
-const stintText = p => p.stints.map(s => `${tc(s.store)} (${mL(s.months[0])}–${mL(s.months.at(-1))})`).join(' → ');
+// "Selaiyur (Apr–May) → Express Avenue Mall (Jun–Sep)"; non-consecutive months are listed as runs
+const runs = ms => { const out = []; ms.forEach(m => { const i = D.months.indexOf(m), last = out.at(-1); if (last && D.months.indexOf(last.at(-1)) === i - 1) last.push(m); else out.push([m]); }); return out.map(r => r.length > 1 ? mL(r[0]) + "–" + mL(r.at(-1)) : mL(r[0])).join(", "); };
+const stintText = p => p.stints.map(s => `${tc(s.store)} (${runs(s.months)})`).join(" → ");
 function compute() {
   STORES = {};
   PEOPLE = D.people.map(p => {
     const st = p.stints ? stintStore(p) : storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
-    if (p.stints) flags.push('Transferred: ' + stintText(p));
+    if (p.stints) flags.push(`Moved: ${stintText(p)} · ${p.moveSrc === 'HR sheet' ? 'per HR sheet' : 'from ' + p.moveSrc}`);
     rt.sales = st.rt.sales; ach.sales = st.salesPct;
     if (w.conv) { rt.conv = st.rt.conv; ach.conv = st.convPct; }
     rt.audit = st.rt.audit; ach.audit = st.audit;
@@ -577,7 +579,7 @@ function renderPeople(role, base) {
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
-    <td>${p.flags.map(f => `<span class="flag${/New store|Transferred/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
@@ -664,7 +666,7 @@ function openPerson(id, role) {
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
   drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
   `<div class="kv"><div><b>Band</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>State</b>${esc(p.state || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
-  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Transferred/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
   <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
   <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
   ${Object.keys(w).map(k => `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
@@ -788,7 +790,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li>Store transfers during H1 (HR sheet “PMS H1 Inputs - Store Transfers”): a person who moved is rated month by month on the store they were in. Sales, conversion, ops scorecard, stock audits and exits are all taken only for the months at each store.</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from the HR “Monthly Store Map” sheet if HR changed it; otherwise from the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
