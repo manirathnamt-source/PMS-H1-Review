@@ -29,7 +29,7 @@ process.argv.forEach((a, i, all) => {
   if (m[2] === 'also') e.also = up(m[3]); else if (MONTHS.includes(m[2])) e.months[m[2]] = up(m[3]);
 });
 
-const storeList = [...new Set([...Object.entries(data.stores).filter(([, s]) => s.code).map(([k]) => k), ...data.people.map(p => p.outlet)])].filter(k => k !== 'BLR - HO').sort();
+const storeList = ['NOT RATED', ...[...new Set([...Object.entries(data.stores).filter(([, s]) => s.code).map(([k]) => k), ...data.people.map(p => p.outlet)])].filter(k => k !== 'BLR - HO').sort()];
 const ORDER = { SM: 0, ASM: 1, SSA: 2 };
 const rows = auto
   .filter(p => p.eligible && (p.role !== 'SSA' || MONTHS.some(m => p.months[m] !== p.outlet) || existing[p.id]))
@@ -52,6 +52,7 @@ const notes = X.utils.aoa_to_sheet([
   ['Every eligible Store Manager and ASM is listed, plus any SA/SSA whose billing shows a different store in some month.'],
   ['Each month (Apr–Sep) already shows the store the person is rated on: from their own billing where they bill, otherwise their current branch.'],
   ['Only change a month if it is wrong: click the cell and pick the correct store from the dropdown. No typing needed.'],
+  ['NOT RATED (top of the dropdown): leave that month out of the person’s rating. Store Managers / ASMs who did not swipe at one store on more than 15 days in a month are pre-filled NOT RATED.'],
   ['"Also Handles": if the person runs a second store together with their main one for the whole of H1 (e.g. one SM for two stores), pick that store. Both stores are then rated together.'],
   ['Rows marked "Moved per billing – please confirm" were detected automatically from the POS data. Leave them if correct.'],
   ['Anyone not in this sheet is rated on their billing store (SA/SSA) or current branch for every month.'],

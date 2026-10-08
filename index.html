@@ -402,15 +402,18 @@ function stintStore(p) {
 // "Chn - Selaiyur (Apr–May) → Chn - Express Avenue Mall (Jun–Sep)", "Blr - Malleswaram + Blr - Ars Complex Malleshwaram (Apr–Sep)"
 function stintText(p) {
   const groups = [];
-  D.months.forEach(m => { const lab = (p.monthStores[m] || []).map(k => tc(k)).join(' + '), g = groups.find(x => x.lab === lab); if (g) g.ms.push(m); else groups.push({ lab, ms: [m] }); });
+  D.months.forEach(m => { const lab = (p.monthStores[m] || []).map(k => tc(k)).join(' + '); if (!lab) return; const g = groups.find(x => x.lab === lab); if (g) g.ms.push(m); else groups.push({ lab, ms: [m] }); });
   return groups.map(g => g.lab + ' (' + runs(g.ms) + ')').join(' → ');
 }
 const storesOf = p => [...new Set(Object.values(p.monthStores || {}).flat())];
+const notRated = p => D.months.filter(m => p.monthStores && !(p.monthStores[m] || []).length);
 function compute() {
   STORES = {};
   PEOPLE = D.people.map(p => {
     const st = p.monthStores ? stintStore(p) : storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
-    if (p.monthStores) flags.push(`${Object.values(p.monthStores).some(x => x.length > 1) ? 'Stores combined' : 'Moved'}: ${stintText(p)} · ${p.moveSrc === 'HR sheet' ? 'per HR sheet' : 'from ' + p.moveSrc}`);
+    const nr = notRated(p), otherStore = p.monthStores && Object.values(p.monthStores).some(x => x.length > 1 || (x.length === 1 && x[0] !== p.outlet));
+    if (otherStore) flags.push(`${Object.values(p.monthStores).some(x => x.length > 1) ? 'Stores combined' : 'Moved'}: ${stintText(p)} · ${p.moveSrc === 'HR sheet' ? 'per HR sheet' : 'from ' + p.moveSrc}`);
+    if (nr.length && nr.length < D.months.length) flags.push(`Not rated for ${runs(nr)}: ${p.att ? 'no store with more than 15 swipe days' : 'per HR sheet'}`);
     rt.sales = st.rt.sales; ach.sales = st.salesPct;
     if (w.conv) { rt.conv = st.rt.conv; ach.conv = st.convPct; }
     rt.audit = st.rt.audit; ach.audit = st.audit;
@@ -590,7 +593,7 @@ function renderPeople(role, base) {
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
-    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
@@ -636,7 +639,7 @@ function renderStores() {
 /* ---------- drill-downs ---------- */
 function monthTable(s) {
   return `<div class="tbl-wrap"><table><thead><tr><th>Month</th>${s.mixed ? '<th>Store</th>' : ''}<th class="num">Store sales</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
-  ${s.months.map(x => { const a = x.target ? (x.netI || 0) / x.target * 100 : null; return `<tr><td>${mL(x.m)}</td>${s.mixed ? `<td>${x.store ? esc(tc(x.store)) : '<span class="muted">–</span>'}</td>` : ''}<td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${a == null ? '–' : `<span style="color:var(--r${rateAch(a)});font-weight:700">●</span> ${fmtP(a, 0)}`}</td>
+  ${s.months.map(x => { const a = x.target ? (x.netI || 0) / x.target * 100 : null; return `<tr><td>${mL(x.m)}</td>${s.mixed ? `<td>${x.store ? esc(x.store) : '<span class="muted">Not rated</span>'}</td>` : ''}<td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${a == null ? '–' : `<span style="color:var(--r${rateAch(a)});font-weight:700">●</span> ${fmtP(a, 0)}`}</td>
   <td class="num bl">${fmtN(x.wi)}</td><td class="num">${fmtN(x.cBills)}</td><td class="num">${x.wi ? fmtP(x.cBills / x.wi * 100) : '–'}</td><td class="num">${x.cvT ? fmtP(x.cvT * 100, 0) : '–'}</td>
   <td class="num bl">${x.billsI ? fmtR(x.netI / x.billsI) : '–'}</td><td class="num">${x.billsI ? fmtN(x.qtyI / x.billsI, 2) : '–'}</td></tr>`; }).join('')}
   <tr style="background:var(--surface-2)"><td><b>H1</b></td>${s.mixed ? '<td></td>' : ''}<td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b> ${chip(s.rt.sales)}</td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b> ${chip(s.rt.conv)}</td><td class="num bl"><b>${fmtR(s.abv)}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
@@ -686,7 +689,7 @@ function openPerson(id, role) {
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
   drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
   `<div class="kv"><div><b>Band</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>State</b>${esc(p.state || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
-  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
   <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
   <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
   ${Object.keys(w).map(k => `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
@@ -810,7 +813,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for Store Managers and ASMs, <b>attendance swipes: the store where they swiped on more than 15 days that month</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for Store Managers and ASMs, <b>attendance swipes: the store where they swiped on more than 15 days that month; if no store passes 15 days, that month is not rated for them</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>

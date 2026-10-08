@@ -150,7 +150,7 @@ console.log('roster roles skipped (no KPI template here):', skipped);
 // 4b. store for each person, month by month. Priority:
 //   HR edit in the store-map sheet > attendance (SM/ASM: > ATT_MIN_DAYS swipe days at one store) > billing (store with most bills, ≥ MIN_MONTH_BILLS) > roster branch.
 // Anyone whose months don't all match their roster branch gets monthStores and is rated month by month on the store(s) they ran.
-const MIN_MONTH_BILLS = 10, ATT_MIN_DAYS = 15;
+const MIN_MONTH_BILLS = 10, ATT_MIN_DAYS = 15, NR = 'NOT RATED';   // NR: month left out of the rating
 SRC.storeMap = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - Monthly Store Map.xlsx';
 SRC.swipes = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/H1 attendance swipes/';
 // the values the sheet was pre-filled with (written by make-store-map.js); a cell only counts as an HR edit if it differs from these
@@ -198,11 +198,13 @@ for (const p of people) {
     const [aTop, aDays] = useAtt ? Object.entries(attDays[p.id][m] || {}).sort((a, b) => b[1] - a[1])[0] || [] : [];
     let def, defSrc;
     if (aDays > ATT_MIN_DAYS && (isStore(aTop) || aTop === p.outlet)) { def = aTop; defSrc = 'attendance'; }
+    // SM/ASM with swipe data but no store above the threshold that month: the month is not rated
+    else if (useAtt) { def = NR; defSrc = 'attendance'; }
     else if (detect && n >= MIN_MONTH_BILLS) { def = top; defSrc = 'billing'; }
     else { def = p.outlet; defSrc = 'roster'; }
     if (def === p.outlet && defSrc !== 'attendance') defSrc = 'roster';
     const hr = (hrMap[p.id] || {})[m];
-    const hrOk = hr && (isStore(hr) || hr === p.outlet);
+    const hrOk = hr && (hr === NR || isStore(hr) || hr === p.outlet);
     if (hr && !hrOk) console.warn('store map: unknown store', p.id, m, hr);
     defaults[m] = def; dsrc[m] = defSrc;
     if (hrOk) { months[m] = hr; src[m] = hr === def ? defSrc : 'HR sheet'; }
@@ -212,8 +214,8 @@ for (const p of people) {
   const also = hrAlso[p.id];
   if (also && !isStore(also)) console.warn('store map: unknown "Also Handles" store', p.id, also);
   // stores per month: main store, plus the clubbed store when one person runs both
-  const per = Object.fromEntries(MONTHS.map(m => [m, also && isStore(also) && also !== months[m] ? [months[m], also] : [months[m]]]));
-  if (MONTHS.some(m => per[m].length > 1 || per[m][0] !== p.outlet)) {
+  const per = Object.fromEntries(MONTHS.map(m => [m, months[m] === NR ? [] : also && isStore(also) && also !== months[m] ? [months[m], also] : [months[m]]]));
+  if (MONTHS.some(m => per[m].length !== 1 || per[m][0] !== p.outlet)) {
     p.monthStores = per;
     p.moveSrc = [...new Set([...MONTHS.filter(m => months[m] !== p.outlet).map(m => src[m]), ...(also && isStore(also) ? ['HR sheet'] : [])])].join(' + ');
   }
