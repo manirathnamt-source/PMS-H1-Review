@@ -151,18 +151,19 @@ console.log('roster roles skipped (no KPI template here):', skipped);
 // Anyone whose months don't all match their roster branch gets "stints" and is rated month by month on the store they were in.
 const MIN_MONTH_BILLS = 10;
 SRC.storeMap = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - Monthly Store Map.xlsx';
-const hrMap = {};
+const hrMap = {}, hrAlso = {};
 if (fs.existsSync(SRC.storeMap)) {
   for (const r of X.utils.sheet_to_json(X.readFile(SRC.storeMap).Sheets['Store Map'], { defval: null })) {
     const id = String(r['Emp ID'] || '').trim(); if (!id) continue;
     for (const m of MONTHS) { const v = r[MLAB[m]]; if (v) (hrMap[id] = hrMap[id] || {})[m] = key(v); }
+    if (r['Also Handles']) hrAlso[id] = key(r['Also Handles']);   // second store run together with the main one, whole H1
   }
 }
 const isStore = k => !!(stores[k] && stores[k].code);                         // a real store with a target row
 const hasH1 = k => Object.values((stores[k] || {}).m || {}).some(x => x.sales);  // new stores have no H1 sales
 const autoMap = [];
 for (const p of people) {
-  const months = {}, src = {}, detect = hasH1(p.outlet);   // staff of new stores stay unrated unless HR maps them
+  const months = {}, defaults = {}, src = {}, detect = hasH1(p.outlet);   // staff of new stores stay unrated unless HR maps them
   for (const m of MONTHS) {
     const bills = (empMonth[p.id] || {})[m] || {};
     const [top, n] = Object.entries(bills).filter(([k]) => isStore(k)).sort((a, b) => b[1] - a[1])[0] || [];
@@ -170,20 +171,24 @@ for (const p of people) {
     const hr = (hrMap[p.id] || {})[m];
     const hrOk = hr && (isStore(hr) || hr === p.outlet);
     if (hr && !hrOk) console.warn('store map: unknown store', p.id, m, hr);
+    defaults[m] = def;
     if (hrOk) { months[m] = hr; src[m] = hr === def ? defSrc : 'HR sheet'; }
     else { months[m] = def; src[m] = defSrc; }
   }
-  autoMap.push({ id: p.id, name: p.name, desig: p.desig, role: p.role, outlet: p.outlet, eligible: p.eligible, months, src });
-  if (MONTHS.some(m => months[m] !== p.outlet)) {
-    const by = {};
-    MONTHS.forEach(m => (by[months[m]] = by[months[m]] || []).push(m));
-    p.stints = Object.entries(by).map(([store, ms]) => ({ store, months: ms })).sort((a, b) => a.months[0].localeCompare(b.months[0]));
-    p.moveSrc = [...new Set(MONTHS.filter(m => months[m] !== p.outlet).map(m => src[m]))].join(' + ');
+  autoMap.push({ id: p.id, name: p.name, desig: p.desig, role: p.role, outlet: p.outlet, eligible: p.eligible, months: defaults });
+  const also = hrAlso[p.id];
+  if (also && !isStore(also)) console.warn('store map: unknown "Also Handles" store', p.id, also);
+  // stores per month: main store, plus the clubbed store when one person runs both
+  const per = Object.fromEntries(MONTHS.map(m => [m, also && isStore(also) && also !== months[m] ? [months[m], also] : [months[m]]]));
+  if (MONTHS.some(m => per[m].length > 1 || per[m][0] !== p.outlet)) {
+    p.monthStores = per;
+    p.moveSrc = [...new Set([...MONTHS.filter(m => months[m] !== p.outlet).map(m => src[m]), ...(also && isStore(also) ? ['HR sheet'] : [])])].join(' + ');
   }
 }
 fs.mkdirSync(here('out'), { recursive: true });
 fs.writeFileSync(here('out/auto-store-map.json'), JSON.stringify(autoMap));
-console.log('people rated across more than one store:', people.filter(p => p.stints).length, Object.entries(people.filter(p => p.stints).reduce((c, p) => (c[p.role] = (c[p.role] || 0) + 1, c), {})));
+const multi = people.filter(p => p.monthStores);
+console.log('people rated on other / combined stores:', multi.length, multi.reduce((c, p) => (c[p.role] = (c[p.role] || 0) + 1, c), {}));
 
 // 5. coverage report
 const used = new Set(people.map(p => p.outlet));

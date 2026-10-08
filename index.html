@@ -363,19 +363,26 @@ function storeH1(k) {
   r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(r.shrink), attr: rateAttr(r.left) };
   return STORES[k] = r;
 }
-// person who moved stores during H1: every store KPI is taken month by month from the store they were in
+const runs = ms => { const out = []; ms.forEach(m => { const i = D.months.indexOf(m), last = out.at(-1); if (last && D.months.indexOf(last.at(-1)) === i - 1) last.push(m); else out.push([m]); }); return out.map(r => r.length > 1 ? mL(r[0]) + "–" + mL(r.at(-1)) : mL(r[0])).join(", "); };
+// person rated on other / several stores during H1: every store KPI is taken month by month from the store(s) they ran that month.
+// Clubbed stores (one SM for two stores) are added together: total sales vs total target, pooled walk-ins and bills, audits and exits of both.
 function stintStore(p) {
+  const MS = p.monthStores;
   const months = D.months.map(m => {
-    const st = p.stints.find(s => s.months.includes(m));
-    if (!st) return { m, store: null };
-    return { ...storeH1(st.store).months.find(x => x.m === m), store: st.store };
+    const ks = MS[m] || [];
+    const rows = ks.map(k => storeH1(k).months.find(x => x.m === m) || {});
+    const f = g => rows.reduce((a, x) => a + (x[g] || 0), 0);
+    const wiT = f('wiT'), tBm = rows.reduce((a, x) => a + (x.wiT || 0) * (x.cvT || 0), 0);
+    return { m, stores: ks, store: ks.length ? ks.map(k => tc(k)).join(' + ') : null, netI: f('netI'), sales: f('sales'), target: f('target'),
+      wi: f('wi'), cBills: f('cBills'), wiT, cvT: wiT ? tBm / wiT : 0, billsI: f('billsI'), qtyI: f('qtyI') };
   });
   const tm = months.filter(x => x.store && x.target > 0), cm = months.filter(x => x.store && x.wiT > 0 && x.cvT > 0 && x.wi > 0);
-  const inStint = (k, m) => p.stints.some(s => s.store === k && s.months.includes(m));
-  const scores = p.stints.flatMap(s => storeH1(s.store).scores.filter(x => s.months.includes(x.m)).map(x => ({ ...x, store: s.store })));
-  const audits = p.stints.flatMap(s => storeH1(s.store).audits.filter(a => inStint(s.store, a.date.slice(0, 7))).map(a => ({ ...a, store: s.store })));
-  const exits = p.stints.flatMap(s => storeH1(s.store).exits.filter(e => inStint(s.store, e.left.slice(0, 7))).map(e => ({ ...e, store: s.store })));
-  const hasExitData = p.stints.some(s => storeH1(s.store).left != null);
+  const inMonth = (k, m) => (MS[m] || []).includes(k);
+  const allStores = [...new Set(Object.values(MS).flat())];
+  const scores = allStores.flatMap(k => storeH1(k).scores.filter(x => inMonth(k, x.m)).map(x => ({ ...x, store: k })));
+  const audits = allStores.flatMap(k => storeH1(k).audits.filter(a => inMonth(k, a.date.slice(0, 7))).map(a => ({ ...a, store: k })));
+  const exits = allStores.flatMap(k => storeH1(k).exits.filter(e => inMonth(k, e.left.slice(0, 7))).map(e => ({ ...e, store: k })));
+  const hasExitData = allStores.some(k => storeH1(k).left != null);
   const sales = sum(tm, x => x.netI), target = sum(tm, x => x.target);
   const wi = sum(cm, x => x.wi), cb = sum(cm, x => x.cBills), tB = sum(cm, x => x.wiT * x.cvT), tW = sum(cm, x => x.wiT);
   const conv = wi ? cb / wi * 100 : null, convT = tW ? tB / tW * 100 : null;
@@ -383,7 +390,7 @@ function stintStore(p) {
   const aSale = sum(audits, a => a.sale), aVal = sum(audits, a => a.value);
   const audit = scores.length ? avg(scores.map(x => x.v)) : null, shrink = aSale ? Math.max(0, -aVal) / aSale * 100 : null, left = hasExitData ? exits.length : null;
   const r = {
-    key: p.outlet, mixed: true, name: p.stints.map(s => tc(s.store)).join(' → '), code: '', months, hasData: months.some(x => x.sales),
+    key: p.outlet, mixed: true, name: stintText(p), code: '', months, hasData: months.some(x => x.sales),
     sales, ecom: sum(tm, x => (x.sales || 0) - (x.netI || 0)), target, salesPct: target ? sales / target * 100 : null, salesMonths: tm.length, tm, cmonths: cm,
     wi, cb, tB, tW, conv, convT, convPct: conv != null && convT ? conv / convT * 100 : null, convMonths: cm.length,
     netI, qtyI, billsI, abv: billsI ? netI / billsI : null, upt: billsI ? qtyI / billsI : null,
@@ -392,14 +399,18 @@ function stintStore(p) {
   r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(shrink), attr: rateAttr(left) };
   return r;
 }
-// "Selaiyur (Apr–May) → Express Avenue Mall (Jun–Sep)"; non-consecutive months are listed as runs
-const runs = ms => { const out = []; ms.forEach(m => { const i = D.months.indexOf(m), last = out.at(-1); if (last && D.months.indexOf(last.at(-1)) === i - 1) last.push(m); else out.push([m]); }); return out.map(r => r.length > 1 ? mL(r[0]) + "–" + mL(r.at(-1)) : mL(r[0])).join(", "); };
-const stintText = p => p.stints.map(s => `${tc(s.store)} (${runs(s.months)})`).join(" → ");
+// "Chn - Selaiyur (Apr–May) → Chn - Express Avenue Mall (Jun–Sep)", "Blr - Malleswaram + Blr - Ars Complex Malleshwaram (Apr–Sep)"
+function stintText(p) {
+  const groups = [];
+  D.months.forEach(m => { const lab = (p.monthStores[m] || []).map(k => tc(k)).join(' + '), g = groups.find(x => x.lab === lab); if (g) g.ms.push(m); else groups.push({ lab, ms: [m] }); });
+  return groups.map(g => g.lab + ' (' + runs(g.ms) + ')').join(' → ');
+}
+const storesOf = p => [...new Set(Object.values(p.monthStores || {}).flat())];
 function compute() {
   STORES = {};
   PEOPLE = D.people.map(p => {
-    const st = p.stints ? stintStore(p) : storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
-    if (p.stints) flags.push(`Moved: ${stintText(p)} · ${p.moveSrc === 'HR sheet' ? 'per HR sheet' : 'from ' + p.moveSrc}`);
+    const st = p.monthStores ? stintStore(p) : storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
+    if (p.monthStores) flags.push(`${Object.values(p.monthStores).some(x => x.length > 1) ? 'Stores combined' : 'Moved'}: ${stintText(p)} · ${p.moveSrc === 'HR sheet' ? 'per HR sheet' : 'from ' + p.moveSrc}`);
     rt.sales = st.rt.sales; ach.sales = st.salesPct;
     if (w.conv) { rt.conv = st.rt.conv; ach.conv = st.convPct; }
     rt.audit = st.rt.audit; ach.audit = st.audit;
@@ -579,7 +590,7 @@ function renderPeople(role, base) {
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
-    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
@@ -666,7 +677,7 @@ function openPerson(id, role) {
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
   drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
   `<div class="kv"><div><b>Band</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>State</b>${esc(p.state || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
-  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
   <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
   <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
   ${Object.keys(w).map(k => `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
@@ -682,12 +693,12 @@ function weightBar(w, rt) {
   return `<div class="wbar">${Object.entries(w).map(([k, v]) => `<div style="flex:${v};background:${KCOL(k)}" data-tip="${KPI_LABEL[k]}: weight ${Math.round(v * 100)}%${rt ? `, rating ${rt[k] ?? 'pending'}` : ''}">${KPI_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div>`;
 }
 function openStore(k) {
-  const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k || (p.stints && p.stints.some(x => x.store === k)));
+  const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k || (p.monthStores && storesOf(p).includes(k)));
   drawer(`<div class="av" style="--avc:var(--r${s.rt.sales || 1});width:46px;height:46px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${ICON.store.replace('<svg', '<svg width="22" height="22"')}</div><div><h3>${esc(tc(s.name))}</h3><div class="sub">${esc(s.code)} · ${esc(ppl[0]?.cmN || s.cm)} · ${esc(ppl[0]?.rmN || s.rm)}</div></div>`,
   `<div class="tiles">${tile(`var(--r${s.rt.sales || 1})`, 'rupee', 'Sales vs target', fmtP(s.salesPct), `${fmtL(s.sales)} of ${fmtL(s.target)}`, s.salesPct)}${tile(`var(--r${s.rt.conv || 1})`, 'door', 'Conversion', fmtP(s.conv), `target ${fmtP(s.convT)}`, s.convPct)}${tile('var(--k-audit)', 'clip', 'Ops scorecard', fmtP(s.audit), 'Apr–Aug average')}</div>
   <div class="card"><h2>Month by month</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}
   <div class="card"><h2>Team (${ppl.length})</h2><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Role</th><th class="num">Score</th><th class="num">Rating</th></tr></thead><tbody>
-  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.eligible ? '' : ' · not eligible'}${p.stints ? ' · ' + esc(stintText(p)) : ''}</div></div></div></td><td>${esc(p.desig)}</td><td class="num">${fmtN(p.score ?? p.prov, 2)}</td><td class="num">${ratingChip(p)}</td></tr>`).join('')}
+  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.eligible ? '' : ' · not eligible'}${p.monthStores ? ' · ' + esc(stintText(p)) : ''}</div></div></div></td><td>${esc(p.desig)}</td><td class="num">${fmtN(p.score ?? p.prov, 2)}</td><td class="num">${ratingChip(p)}</td></tr>`).join('')}
   </tbody></table></div></div>`);
 }
 
@@ -790,7 +801,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from the HR “Monthly Store Map” sheet if HR changed it; otherwise from the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from the HR “Monthly Store Map” sheet if HR changed it; otherwise from the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
