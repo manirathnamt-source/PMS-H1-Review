@@ -168,7 +168,7 @@ if (fs.existsSync(SRC.storeMap)) {
 }
 // attendance swipes (SM/ASM): distinct swipe days per store per month
 const doorMap = JSON.parse(fs.readFileSync(here('door-map.json')));
-const attDays = {};   // attDays[id][month][store] = days
+const attDays = {}, attFirst = {};   // attDays[id][month][store] = days; attFirst[id][month][store] = first swipe date there that month
 if (fs.existsSync(SRC.swipes)) {
   const unmapped = {};
   for (const f of fs.readdirSync(SRC.swipes).filter(f => /\.xlsx$/i.test(f) && !f.startsWith('~$'))) {
@@ -180,6 +180,8 @@ if (fs.existsSync(SRC.swipes)) {
       if (!MONTHS.includes(m)) continue;
       const o = (((attDays[id] = attDays[id] || {})[m] = attDays[id][m] || {})[st] = attDays[id][m][st] || new Set());
       o.add(day);
+      const fs1 = ((attFirst[id] = attFirst[id] || {})[m] = attFirst[id][m] || {});
+      if (!fs1[st] || day < fs1[st]) fs1[st] = day;
     }
   }
   for (const id in attDays) for (const m in attDays[id]) for (const st in attDays[id][m]) attDays[id][m][st] = attDays[id][m][st].size;
@@ -191,7 +193,7 @@ const autoMap = [];
 for (const p of people) {
   const months = {}, defaults = {}, dsrc = {}, src = {}, detect = hasH1(p.outlet);   // staff of new stores stay unrated unless HR maps them
   const useAtt = (p.role === 'SM' || p.role === 'ASM') && attDays[p.id];
-  if (useAtt) p.att = attDays[p.id];   // shown in the drill-down
+  if (useAtt) { p.att = attDays[p.id]; p.attFirst = attFirst[p.id]; }   // shown in the drill-down; attFirst limits attrition to exits after they started
   for (const m of MONTHS) {
     const bills = (empMonth[p.id] || {})[m] || {};
     const [top, n] = Object.entries(bills).filter(([k]) => isStore(k)).sort((a, b) => b[1] - a[1])[0] || [];
