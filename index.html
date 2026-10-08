@@ -363,10 +363,41 @@ function storeH1(k) {
   r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(r.shrink), attr: rateAttr(r.left) };
   return STORES[k] = r;
 }
+// person who moved stores during H1: every store KPI is taken month by month from the store they were in
+function stintStore(p) {
+  const months = D.months.map(m => {
+    const st = p.stints.find(s => s.months.includes(m));
+    if (!st) return { m, store: null };
+    return { ...storeH1(st.store).months.find(x => x.m === m), store: st.store };
+  });
+  const tm = months.filter(x => x.store && x.target > 0), cm = months.filter(x => x.store && x.wiT > 0 && x.cvT > 0 && x.wi > 0);
+  const inStint = (k, m) => p.stints.some(s => s.store === k && s.months.includes(m));
+  const scores = p.stints.flatMap(s => storeH1(s.store).scores.filter(x => s.months.includes(x.m)).map(x => ({ ...x, store: s.store })));
+  const audits = p.stints.flatMap(s => storeH1(s.store).audits.filter(a => inStint(s.store, a.date.slice(0, 7))).map(a => ({ ...a, store: s.store })));
+  const exits = p.stints.flatMap(s => storeH1(s.store).exits.filter(e => inStint(s.store, e.left.slice(0, 7))).map(e => ({ ...e, store: s.store })));
+  const hasExitData = p.stints.some(s => storeH1(s.store).left != null);
+  const sales = sum(tm, x => x.netI), target = sum(tm, x => x.target);
+  const wi = sum(cm, x => x.wi), cb = sum(cm, x => x.cBills), tB = sum(cm, x => x.wiT * x.cvT), tW = sum(cm, x => x.wiT);
+  const conv = wi ? cb / wi * 100 : null, convT = tW ? tB / tW * 100 : null;
+  const netI = sum(months, x => x.netI), billsI = sum(months, x => x.billsI), qtyI = sum(months, x => x.qtyI);
+  const aSale = sum(audits, a => a.sale), aVal = sum(audits, a => a.value);
+  const audit = scores.length ? avg(scores.map(x => x.v)) : null, shrink = aSale ? Math.max(0, -aVal) / aSale * 100 : null, left = hasExitData ? exits.length : null;
+  const r = {
+    key: p.outlet, mixed: true, name: p.stints.map(s => tc(s.store)).join(' → '), code: '', months, hasData: months.some(x => x.sales),
+    sales, ecom: sum(tm, x => (x.sales || 0) - (x.netI || 0)), target, salesPct: target ? sales / target * 100 : null, salesMonths: tm.length, tm, cmonths: cm,
+    wi, cb, tB, tW, conv, convT, convPct: conv != null && convT ? conv / convT * 100 : null, convMonths: cm.length,
+    netI, qtyI, billsI, abv: billsI ? netI / billsI : null, upt: billsI ? qtyI / billsI : null,
+    audit, shrink, left, scores, audits, exits, open: null, joiners: null, close: null, attrPct: null,
+  };
+  r.rt = { sales: rateAch(r.salesPct), conv: rateAch(r.convPct), audit: rateAudit(audit), shrink: rateShrink(shrink), attr: rateAttr(left) };
+  return r;
+}
+const stintText = p => p.stints.map(s => `${tc(s.store)} (${mL(s.months[0])}–${mL(s.months.at(-1))})`).join(' → ');
 function compute() {
   STORES = {};
   PEOPLE = D.people.map(p => {
-    const st = storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
+    const st = p.stints ? stintStore(p) : storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
+    if (p.stints) flags.push('Transferred: ' + stintText(p));
     rt.sales = st.rt.sales; ach.sales = st.salesPct;
     if (w.conv) { rt.conv = st.rt.conv; ach.conv = st.convPct; }
     rt.audit = st.rt.audit; ach.audit = st.audit;
@@ -546,7 +577,7 @@ function renderPeople(role, base) {
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
-    <td>${p.flags.map(f => `<span class="flag${/New store/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+    <td>${p.flags.map(f => `<span class="flag${/New store|Transferred/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
@@ -591,27 +622,27 @@ function renderStores() {
 
 /* ---------- drill-downs ---------- */
 function monthTable(s) {
-  return `<div class="tbl-wrap"><table><thead><tr><th>Month</th><th class="num">Store sales</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
-  ${s.months.map(x => { const a = x.target ? (x.netI || 0) / x.target * 100 : null; return `<tr><td>${mL(x.m)}</td><td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${a == null ? '–' : `<span style="color:var(--r${rateAch(a)});font-weight:700">●</span> ${fmtP(a, 0)}`}</td>
+  return `<div class="tbl-wrap"><table><thead><tr><th>Month</th>${s.mixed ? '<th>Store</th>' : ''}<th class="num">Store sales</th><th class="num">Target</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Conv. target</th><th class="num bl">ABV</th><th class="num">UPT</th></tr></thead><tbody>
+  ${s.months.map(x => { const a = x.target ? (x.netI || 0) / x.target * 100 : null; return `<tr><td>${mL(x.m)}</td>${s.mixed ? `<td>${x.store ? esc(tc(x.store)) : '<span class="muted">–</span>'}</td>` : ''}<td class="num">${fmtL(x.netI)}</td><td class="num">${fmtL(x.target)}</td><td class="num">${a == null ? '–' : `<span style="color:var(--r${rateAch(a)});font-weight:700">●</span> ${fmtP(a, 0)}`}</td>
   <td class="num bl">${fmtN(x.wi)}</td><td class="num">${fmtN(x.cBills)}</td><td class="num">${x.wi ? fmtP(x.cBills / x.wi * 100) : '–'}</td><td class="num">${x.cvT ? fmtP(x.cvT * 100, 0) : '–'}</td>
   <td class="num bl">${x.billsI ? fmtR(x.netI / x.billsI) : '–'}</td><td class="num">${x.billsI ? fmtN(x.qtyI / x.billsI, 2) : '–'}</td></tr>`; }).join('')}
-  <tr style="background:var(--surface-2)"><td><b>H1</b></td><td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b> ${chip(s.rt.sales)}</td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b> ${chip(s.rt.conv)}</td><td class="num bl"><b>${fmtR(s.abv)}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
+  <tr style="background:var(--surface-2)"><td><b>H1</b></td>${s.mixed ? '<td></td>' : ''}<td class="num"><b>${fmtL(s.sales)}</b></td><td class="num"><b>${fmtL(s.target)}</b></td><td class="num"><b>${fmtP(s.salesPct, 1)}</b> ${chip(s.rt.sales)}</td><td class="num bl" colspan="2"></td><td class="num"><b>${fmtP(s.conv)}</b></td><td class="num"><b>${fmtP(s.convT)}</b> ${chip(s.rt.conv)}</td><td class="num bl"><b>${fmtR(s.abv)}</b></td><td class="num"><b>${fmtN(s.upt, 2)}</b></td></tr>
   </tbody></table></div>`;
 }
 function opsCard(s) {
   if (!s.scores.length && !s.audits.length) return '';
   return `<div class="card"><h2>Ops scorecard &amp; stock audits</h2>
   ${s.scores.length ? `<div class="tbl-wrap" style="margin:10px 0"><table><thead><tr><th>Scorecard</th>${s.scores.map(x => `<th class="num">${mL(x.m)}</th>`).join('')}<th class="num bl">H1 avg</th></tr></thead><tbody>
-  <tr><td>Score</td>${s.scores.map(x => `<td class="num" data-tip="${esc(x.zone)}">${fmtP(x.v, 0)}</td>`).join('')}<td class="num bl"><b>${fmtP(s.audit)}</b> ${chip(s.rt.audit)}</td></tr></tbody></table></div>` : ''}
+  <tr><td>Score</td>${s.scores.map(x => `<td class="num" data-tip="${esc((x.store ? tc(x.store) + ' · ' : '') + (x.zone || ''))}">${fmtP(x.v, 0)}</td>`).join('')}<td class="num bl"><b>${fmtP(s.audit)}</b> ${chip(s.rt.audit)}</td></tr></tbody></table></div>` : ''}
   ${s.audits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Stock audit</th><th>Auditor</th><th class="num">Store sale</th><th class="num">Shrink value</th><th class="num">Qty</th><th class="num">Shrink %</th></tr></thead><tbody>
-  ${s.audits.map(a => `<tr><td>${esc(a.date)}</td><td>${esc(a.auditor)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${fmtN(a.qty)}</td><td class="num">${a.sale ? (-a.value / a.sale * 100).toFixed(3) + '%' : '–'}</td></tr>`).join('')}
+  ${s.audits.map(a => `<tr><td>${esc(a.date)}${a.store ? `<div class="cellsub">${esc(tc(a.store))}</div>` : ''}</td><td>${esc(a.auditor)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${fmtN(a.qty)}</td><td class="num">${a.sale ? (-a.value / a.sale * 100).toFixed(3) + '%' : '–'}</td></tr>`).join('')}
   <tr style="background:var(--surface-2)"><td colspan="5"><b>H1 net loss ÷ store sale</b></td><td class="num"><b>${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'}</b> ${chip(s.rt.shrink)}</td></tr></tbody></table></div>` : ''}</div>`;
 }
 function attrCard(s) {
   if (s.left == null) return '';
-  return `<div class="card"><h2>Attrition, Apr–Sep</h2><p class="hint">Opening ${s.open} · joiners ${s.joiners} · exits ${s.left} · closing ${s.close} · attrition ${fmtP(s.attrPct, 1)} · SM attrition rating ${chip(s.rt.attr)}</p>
+  return `<div class="card"><h2>Attrition, Apr–Sep</h2><p class="hint">${s.mixed ? `Exits counted from each store only for the months this person was there: <b>${s.left}</b>` : `Opening ${s.open} · joiners ${s.joiners} · exits ${s.left} · closing ${s.close} · attrition ${fmtP(s.attrPct, 1)}`} · SM attrition rating ${chip(s.rt.attr)}</p>
   ${s.exits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Left</th><th>Employee</th><th>Designation</th><th>Joined</th></tr></thead><tbody>
-  ${s.exits.slice().sort((a, b) => a.left.localeCompare(b.left)).map(x => `<tr><td>${esc(x.left)}</td><td>${esc(x.name)} <span class="muted">${esc(x.id)}</span></td><td>${esc(x.desig)}</td><td>${esc(x.doj)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nobody left this store in H1.</p>'}</div>`;
+  ${s.exits.slice().sort((a, b) => a.left.localeCompare(b.left)).map(x => `<tr><td>${esc(x.left)}${x.store ? `<div class="cellsub">${esc(tc(x.store))}</div>` : ''}</td><td>${esc(x.name)} <span class="muted">${esc(x.id)}</span></td><td>${esc(x.desig)}</td><td>${esc(x.doj)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nobody left this store in H1.</p>'}</div>`;
 }
 function drawer(head, body) {
   $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div class="dhead">${head}<span class="spacer"></span><button class="hbtn" id="dClose">Close</button></div><div class="dbody">${body}</div></aside>`;
@@ -626,14 +657,14 @@ function openPerson(id, role) {
     conv: `Store ${fmtP(s.conv)} vs target ${fmtP(s.convT)} (${s.convMonths} months)`,
     abv: p.ind ? `Own ${fmtR(p.ind.abv)} vs store ${fmtR(p.ind.sAbv)}` : '',
     upt: p.ind ? `Own ${fmtN(p.ind.upt, 2)} vs store ${fmtN(p.ind.sUpt, 2)}` : '',
-    audit: s.audit == null ? 'Awaiting scorecard' : `Store scorecard avg ${fmtP(s.audit)} (${s.scores.length || 1} months)`,
+    audit: s.audit == null ? 'Awaiting scorecard' : `${s.mixed ? 'Scorecard avg across their stores' : 'Store scorecard avg'} ${fmtP(s.audit)} (${s.scores.length || 1} months)`,
     shrink: s.shrink == null ? 'Awaiting shrinkage' : `Store shrinkage ${s.shrink.toFixed(3)}% (${s.audits.length || 1} stock audits)`,
-    attr: s.left == null ? 'Awaiting attrition data' : `${s.left} people left the store in H1 (opening ${s.open}, joiners ${s.joiners}, attrition ${fmtP(s.attrPct, 0)})`,
+    attr: s.left == null ? 'Awaiting attrition data' : s.mixed ? `${s.left} people left while they ran each store` : `${s.left} people left the store in H1 (opening ${s.open}, joiners ${s.joiners}, attrition ${fmtP(s.attrPct, 0)})`,
   };
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
   drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
   `<div class="kv"><div><b>Band</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>State</b>${esc(p.state || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
-  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Transferred/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
   <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
   <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
   ${Object.keys(w).map(k => `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
@@ -643,18 +674,18 @@ function openPerson(id, role) {
   <div class="tbl-wrap"><table><thead><tr><th>Store</th><th class="num">Sales</th><th class="num">Bills</th><th class="num">ABV</th><th class="num">Store ABV</th><th class="num">UPT</th><th class="num">Store UPT</th></tr></thead><tbody>
   ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">${fmtR(x.bills ? x.net / x.bills : null)}</td><td class="num">${fmtR(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
   </tbody></table></div></div>` : ''}
-  <div class="card"><h2>Store month by month · ${esc(tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
+  <div class="card"><h2>Store month by month · ${esc(s.mixed ? s.name : tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
 }
 function weightBar(w, rt) {
   return `<div class="wbar">${Object.entries(w).map(([k, v]) => `<div style="flex:${v};background:${KCOL(k)}" data-tip="${KPI_LABEL[k]}: weight ${Math.round(v * 100)}%${rt ? `, rating ${rt[k] ?? 'pending'}` : ''}">${KPI_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div>`;
 }
 function openStore(k) {
-  const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k);
+  const s = storeH1(k), ppl = PEOPLE.filter(p => p.outlet === k || (p.stints && p.stints.some(x => x.store === k)));
   drawer(`<div class="av" style="--avc:var(--r${s.rt.sales || 1});width:46px;height:46px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${ICON.store.replace('<svg', '<svg width="22" height="22"')}</div><div><h3>${esc(tc(s.name))}</h3><div class="sub">${esc(s.code)} · ${esc(ppl[0]?.cmN || s.cm)} · ${esc(ppl[0]?.rmN || s.rm)}</div></div>`,
   `<div class="tiles">${tile(`var(--r${s.rt.sales || 1})`, 'rupee', 'Sales vs target', fmtP(s.salesPct), `${fmtL(s.sales)} of ${fmtL(s.target)}`, s.salesPct)}${tile(`var(--r${s.rt.conv || 1})`, 'door', 'Conversion', fmtP(s.conv), `target ${fmtP(s.convT)}`, s.convPct)}${tile('var(--k-audit)', 'clip', 'Ops scorecard', fmtP(s.audit), 'Apr–Aug average')}</div>
   <div class="card"><h2>Month by month</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}
   <div class="card"><h2>Team (${ppl.length})</h2><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Role</th><th class="num">Score</th><th class="num">Rating</th></tr></thead><tbody>
-  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td><td>${esc(p.desig)}</td><td class="num">${fmtN(p.score ?? p.prov, 2)}</td><td class="num">${ratingChip(p)}</td></tr>`).join('')}
+  ${ppl.map(p => `<tr class="${p.eligible ? '' : 'inel'}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.eligible ? '' : ' · not eligible'}${p.stints ? ' · ' + esc(stintText(p)) : ''}</div></div></div></td><td>${esc(p.desig)}</td><td class="num">${fmtN(p.score ?? p.prov, 2)}</td><td class="num">${ratingChip(p)}</td></tr>`).join('')}
   </tbody></table></div></div>`);
 }
 
@@ -757,7 +788,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li>Store transfers during H1 (HR sheet “PMS H1 Inputs - Store Transfers”): a person who moved is rated month by month on the store they were in. Sales, conversion, ops scorecard, stock audits and exits are all taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>

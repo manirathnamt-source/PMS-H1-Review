@@ -146,6 +146,28 @@ const people = [], skipped = {};
 }
 console.log('roster roles skipped (no KPI template here):', skipped);
 
+// 4b. store transfers during H1 (HR-maintained): person is rated month by month on the store they were in
+SRC.transfers = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - Store Transfers.xlsx';
+if (fs.existsSync(SRC.transfers)) {
+  const MON = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+  const ym = v => {
+    if (typeof v === 'number') return xdate(v).slice(0, 7);
+    const m = /([A-Za-z]{3})[A-Za-z]*[\s'-]*(\d{2,4})/.exec(String(v || ''));
+    return m ? `${m[2].length === 2 ? '20' + m[2] : m[2]}-${String(MON[m[1].toUpperCase()]).padStart(2, '0')}` : '';
+  };
+  for (const r of X.utils.sheet_to_json(X.readFile(SRC.transfers).Sheets.Transfers, { defval: null })) {
+    const id = String(r['Emp ID'] || '').trim(), p = people.find(x => x.id === id), k = key(r['Store Name']);
+    const from = ym(r['From Month']), to = ym(r['To Month']);
+    if (!p || !stores[k] || !from || !to) { console.warn('transfer row skipped:', id, r['Store Name'], r['From Month'], r['To Month']); continue; }
+    (p.stints = p.stints || []).push({ store: k, months: MONTHS.filter(m => m >= from && m <= to) });
+  }
+  for (const p of people.filter(x => x.stints)) {
+    const covered = p.stints.flatMap(s => s.months);
+    if (covered.length !== new Set(covered).size) console.warn('overlapping transfer months for', p.id);
+    console.log('transfer:', p.id, p.name, p.stints.map(s => `${s.store} ${s.months.join(',')}`).join(' | '));
+  }
+}
+
 // 5. coverage report
 const used = new Set(people.map(p => p.outlet));
 const gaps = [...used].map(k => ({ k, s: stores[k] })).filter(({ s }) => !s || !s.code || MONTHS.some(m => !(s.m[m] || {}).sales || !(s.m[m] || {}).wi))
