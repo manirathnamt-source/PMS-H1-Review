@@ -32,7 +32,7 @@ const S = k => stores[k] || (stores[k] = { name: k, m: {} });
 const SM = (k, m) => S(k).m[m] || (S(k).m[m] = {});
 
 // 1. sales (item-wise aggregates)
-const empSales = {}, empMonth = {};   // empMonth[id][month][store] = bills
+const empSales = {}, empMonth = {}, empNet = {};   // empMonth[id][month][store] = bills; empNet[id][month][store] = sales (excl. e-com)
 for (const m of MONTHS) {
   const a = JSON.parse(fs.readFileSync(here(`agg/${m}.json`)));
   for (const [o, v] of Object.entries(a.stores)) Object.assign(SM(key(o), m), { sales: v.all.net, netI: v.inst.net, qtyI: v.inst.qty, billsI: v.inst.bills });
@@ -40,6 +40,7 @@ for (const m of MONTHS) {
     const e = (empSales[id] = empSales[id] || {}), r = (e[key(o)] = e[key(o)] || { net: 0, qty: 0, bills: 0 });
     r.net += v.net; r.qty += v.qty; r.bills += v.bills;
     const em = ((empMonth[id] = empMonth[id] || {})[m] = empMonth[id][m] || {}); em[key(o)] = (em[key(o)] || 0) + v.bills;
+    const en = ((empNet[id] = empNet[id] || {})[m] = empNet[id][m] || {}); en[key(o)] = (en[key(o)] || 0) + v.net;
   }
 }
 
@@ -142,6 +143,8 @@ const people = [], skipped = {};
       id, role, name: String(r['Employee Name'] || '').trim(), desig, grade: r['Curr.Band'] || r['Curr.Grade'], outlet, doj,
       state: r['Curr.Location'], eligible, cm: s.cmA || s.cm || '', am: s.rmA || s.rm || '',
       sales: role === 'SSA' ? (empSales[id] || {}) : undefined,
+      // monthly own sales and the in-store sales of the store(s) they billed in that month (for contribution %)
+      mSales: role === 'SSA' ? Object.fromEntries(MONTHS.map(m => { const e = (empNet[id] || {})[m] || {}; const own = Object.values(e).reduce((a, v) => a + v, 0); const st = Object.keys(e).reduce((a, k) => a + ((stores[k] && stores[k].m[m] && stores[k].m[m].netI) || 0), 0); return [m, [Math.round(own), Math.round(st)]]; })) : undefined,
     });
   }
 }

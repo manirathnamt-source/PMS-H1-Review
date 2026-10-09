@@ -656,6 +656,12 @@ function renderPeople(role, base) {
   </div>`;
   const G = { name: p => p.name, outlet: p => p.outlet, score: p => p.score ?? p.prov, final: p => rOf(p) };
   ks.forEach(k => G[k] = p => p.ach[k]);
+  const showM = role === 'SSA';   // SA/SSA: own sales per month + contribution to store sales
+  const mOwn = (p, m) => ((p.mSales || {})[m] || [0, 0])[0], h1Own = p => D.months.reduce((a, m) => a + mOwn(p, m), 0), h1St = p => D.months.reduce((a, m) => a + ((p.mSales || {})[m] || [0, 0])[1], 0);
+  if (showM) { D.months.forEach(m => G['m' + m] = p => mOwn(p, m)); G.h1 = h1Own; }
+  const mCell = (own, st) => own ? `<b>${fmtL(own)}</b><div class="cellsub">${st ? (own / st * 100).toFixed(1) + '%' : '–'}</div>` : '<span class="muted">–</span>';
+  const mHead = showM ? D.months.map((m, i) => `<th class="num${i ? '' : ' bl'}" data-s="m${m}" title="Own sales (excl. e-com) and % of the store sales that month">${mL(m)}</th>`).join('') + `<th class="num" data-s="h1" title="H1 own sales and contribution">H1</th>` : '';
+  const mCells = p => showM ? D.months.map((m, i) => { const [o, s] = (p.mSales || {})[m] || [0, 0]; return `<td class="num${i ? '' : ' bl'}">${mCell(o, s)}</td>`; }).join('') + `<td class="num" style="background:var(--surface-2)">${mCell(h1Own(p), h1St(p))}</td>` : '';
   const rows = sortRows(all, G);
   const kHead = ks.map(k => `<th class="num bl" data-s="${k}"><span class="kdot" style="background:${KCOL(k)}"></span>${KPI_SHORT[k]} <span class="muted">${Math.round(w[k] * 100)}%</span></th>`).join('');
   const kc = (p, k) => (p.kpiOvr || {})[k] ? `<span class="chip r${p.rt[k]} ovr" title="Changed by ${esc(p.kpiOvr[k].by)}: ${esc(p.kpiOvr[k].reason)}">${p.rt[k]}✎</span>` : chip(p.rt[k]);
@@ -664,7 +670,7 @@ function renderPeople(role, base) {
     : k === 'attr' ? `${p.ach[k] == null ? '<span class="muted">awaiting</span>' : p.ach[k] + ' left'} ${kc(p, k)}` : achCell(p.ach[k], p.rt[k], 0, (p.kpiOvr || {})[k]);
   const body = rows.map(p => `<tr class="${p.eligible ? '' : 'inel'}" data-id="${esc(p.id)}">
     <td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}${p.review ? ` <span title="Reviewed by ${esc(p.review.by)}" style="color:var(--r4)">✓</span>` : ''}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td>
-    <td>${esc(tc(p.outlet))}<div class="cellsub">${esc(p.cmN)}</div></td>
+    <td>${esc(tc(p.outlet))}<div class="cellsub">${esc(p.cmN)}</div></td>${mCells(p)}
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
@@ -672,7 +678,7 @@ function renderPeople(role, base) {
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
-    <div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${mHead}${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5 + (showM ? D.months.length + 1 : 0)}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
     ${done < rated.length ? `<p class="note">* Provisional: ${pendK.map(k => KPI_LABEL[k]).join(', ')} not in yet, so the score is re-weighted over the KPIs that have data. It becomes final once every KPI is in. See “How ratings work”.</p>` : ''}`;
   bindSort(() => renderPeople(role, filtered()));
   $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) openPerson(tr.dataset.id, role); };
