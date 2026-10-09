@@ -3,7 +3,7 @@
 // Sheet 2 = list of all Store Managers with Emp ID. Apr–Sep are pre-filled with what the dashboard uses today.
 // usage: node build/build.js && node build/make-sm-store-sheet.js [--force]
 const fs = require('fs'), X = require('xlsx'), JSZip = require('jszip');
-const OUT = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - SM Store Mapping.xlsx';
+const OUT = process.env.SM_MAP_OUT || 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - SM Store Mapping.xlsx';   // SM_MAP_OUT: write a test copy (baseline untouched)
 if (fs.existsSync(OUT) && !process.argv.includes('--force')) { console.log('exists, not overwritten (use --force):', OUT); process.exit(0); }
 const d = require('./out/data.json');
 const MONTHS = ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
@@ -77,13 +77,16 @@ const buf = X.write(wb, { type: 'buffer', bookType: 'xlsx' });
   let xml = await zip.file(f).async('string');
   // dropdown from SM List column C; typing a plain Emp ID is allowed too (no error popup)
   const dv = `<dataValidations count="1"><dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="E2:M${rows.length + 1}"><formula1>'SM List'!$C$2:$C$${list.length + 1}</formula1></dataValidation></dataValidations>`;
-  xml = xml.includes('<pageMargins') ? xml.replace('<pageMargins', dv + '<pageMargins') : xml.replace('</worksheet>', dv + '</worksheet>');
+  // Excel requires <dataValidations> before these elements (schema order); placing it later makes Excel drop the sheet data
+  const after = ['<hyperlinks', '<printOptions', '<pageMargins', '<pageSetup', '<headerFooter', '<ignoredErrors', '<drawing', '<tableParts', '<extLst', '</worksheet>'];
+  const at = Math.min(...after.map(t => xml.indexOf(t)).filter(i => i >= 0));
+  xml = xml.slice(0, at) + dv + xml.slice(at);
   zip.file(f, xml);
   fs.writeFileSync(OUT, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
   // baseline = what was pre-filled; the build only applies month columns HR has changed from this
   const base = {};
   for (const r of rows) for (const m of d.months) { const id = (/^(T?\d+)/.exec(r[LAB(m)] || '') || [])[1]; if (id) (base[m] = base[m] || {})[r['Store Name']] = id; }
-  fs.writeFileSync(__dirname + '/out/sm-map-baseline.json', JSON.stringify(base));
+  if (!process.env.SM_MAP_OUT) fs.writeFileSync(__dirname + '/out/sm-map-baseline.json', JSON.stringify(base));
   console.log('please check:', check.length, 'items');
   const filled = rows.reduce((a, r) => a + MONTHS.filter(m => r[LAB(m)]).length, 0);
   console.log('written', rows.length, 'stores x', MONTHS.length, 'months;', filled, 'cells pre-filled;', list.length, 'SMs in list');

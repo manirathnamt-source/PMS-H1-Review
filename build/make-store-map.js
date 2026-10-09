@@ -73,7 +73,10 @@ const buf = X.write(wb, { type: 'buffer', bookType: 'xlsx' });
   const f = 'xl/worksheets/sheet1.xml';
   let xml = await zip.file(f).async('string');
   const dv = `<dataValidations count="1"><dataValidation type="list" allowBlank="1" showErrorMessage="1" errorTitle="Pick a store" error="Choose a store from the list." sqref="E2:K${rows.length + 1}"><formula1>Stores!$A$2:$A$${storeList.length + 1}</formula1></dataValidation></dataValidations>`;
-  xml = xml.includes('<pageMargins') ? xml.replace('<pageMargins', dv + '<pageMargins') : xml.replace('</worksheet>', dv + '</worksheet>');
+  // Excel requires <dataValidations> before these elements (schema order); placing it later makes Excel drop the sheet data
+  const after = ['<hyperlinks', '<printOptions', '<pageMargins', '<pageSetup', '<headerFooter', '<ignoredErrors', '<drawing', '<tableParts', '<extLst', '</worksheet>'];
+  const at = Math.min(...after.map(t => xml.indexOf(t)).filter(i => i >= 0));
+  xml = xml.slice(0, at) + dv + xml.slice(at);
   zip.file(f, xml);
   fs.writeFileSync(OUT, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
   fs.writeFileSync(BASE, JSON.stringify(Object.fromEntries(auto.map(p => [p.id, p.months]))));   // what untouched cells now hold
