@@ -82,7 +82,7 @@ SRC.ops = DL + "Shrinkage and operational score card deratil April to Sep'26.xls
   for (const r of X.utils.sheet_to_json(wb.Sheets['Shrinkage report'], { defval: null })) {
     const k = key(r.AB); if (!k) continue;
     const dup = [k, r['Shrinkage Value'], r['Shrinkage Qty'], r['Store Sale']].join('|'); if (seen.has(dup)) continue; seen.add(dup);
-    const i = inp(k); (i.audits = i.audits || []).push({ date: xdate(r.Date), month: String(r.Month || '').slice(0, 3), auditor: r.Auditor, pct: num(r['Shrinkage %']), value: num(r['Shrinkage Value']), qty: num(r['Shrinkage Qty']), sale: num(r['Store Sale']) });
+    const i = inp(k); (i.audits = i.audits || []).push({ date: xdate(r.Date), month: String(r.Month || '').slice(0, 3), auditor: r.Auditor, q: String(r.Quarter || '').trim().toUpperCase(), pct: num(r['Shrinkage %']), value: num(r['Shrinkage Value']), qty: num(r['Shrinkage Qty']), sale: num(r['Store Sale']) });
   }
   for (const s of Object.values(stores)) if (s.inp && s.inp.audits) {
     const v = s.inp.audits.reduce((a, x) => a + x.value, 0), sale = s.inp.audits.reduce((a, x) => a + x.sale, 0);
@@ -192,6 +192,18 @@ if (fs.existsSync(SRC.smMap)) {
     for (const [k, id] of Object.entries(col[m] || {})) ((smMap.by[id] = smMap.by[id] || {})[m] = smMap.by[id][m] || []).push(k);
   }
   if (smMap.filled.size) console.log('SM mapping sheet applied for months:', [...smMap.filled].join(', '));
+  // Q1 shrinkage owner: the SM who handled the store in Jan–Mar (most of those months; ties go to the later month)
+  const q1 = {};
+  for (const r of X.utils.sheet_to_json(X.readFile(SRC.smMap).Sheets['Store x Month'], { defval: null, raw: false })) {
+    const k = key(r['Store Name']); if (!k) continue;
+    const ids = ['Jan-26', 'Feb-26', 'Mar-26'].map(c => (/^\s*(T?\d+)/.exec(String(r[c] || '')) || [])[1]).filter(Boolean);
+    if (!ids.length) continue;
+    const n = {}; ids.forEach(id => n[id] = (n[id] || 0) + 1);
+    const best = Object.keys(n).sort((a, c) => n[c] - n[a] || ids.lastIndexOf(c) - ids.lastIndexOf(a))[0];
+    q1[k] = best;
+  }
+  for (const [k, id] of Object.entries(q1)) S(k).q1sm = id;
+  console.log('Q1 shrinkage owners (Jan–Mar SM) set for', Object.keys(q1).length, 'stores');
 }
 // attendance swipes (SM/ASM): distinct swipe days per store per month
 const doorMap = JSON.parse(fs.readFileSync(here('door-map.json')));
@@ -221,7 +233,7 @@ const hasH1 = k => Object.values((stores[k] || {}).m || {}).some(x => x.sales); 
 const autoMap = [];
 for (const p of people) {
   const months = {}, defaults = {}, dsrc = {}, src = {}, detect = hasH1(p.outlet);   // staff of new stores stay unrated unless HR maps them
-  const useAtt = (p.role === 'SM' || p.role === 'ASM') && attDays[p.id];
+  const useAtt = !!attDays[p.id];   // anyone with attendance data: rated on the store with > 15 reporting days each month
   if (useAtt) { p.att = attDays[p.id]; p.attFirst = attFirst[p.id]; }   // shown in the drill-down; attFirst limits attrition to exits after they started
   for (const m of MONTHS) {
     const bills = (empMonth[p.id] || {})[m] || {};

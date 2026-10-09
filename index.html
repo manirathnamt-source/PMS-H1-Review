@@ -409,10 +409,21 @@ function stintText(p) {
 }
 const storesOf = p => [...new Set(Object.values(p.monthStores || {}).flat())];
 const notRated = p => D.months.filter(m => p.monthStores && !(p.monthStores[m] || []).length);
+// Store Managers: Q1 stock audits belong to whoever handled the store in Jan–Mar (SM Store Mapping sheet);
+// Q2 audits stay with the store(s) they ran in the audit month.
+function smShrink(p, st) {
+  const isQ1 = a => a.q === 'Q1';
+  const own = st.audits.filter(a => !isQ1(a));
+  const q1 = Object.entries(D.stores).filter(([, s]) => s.q1sm === p.id).flatMap(([k, s]) => ((s.inp && s.inp.audits) || []).filter(isQ1).map(a => ({ ...a, store: k, q1Owner: true })));
+  const audits = [...q1, ...own].sort((a, b) => a.date.localeCompare(b.date));
+  const sale = sum(audits, a => a.sale), val = sum(audits, a => a.value);
+  const shrink = sale ? Math.max(0, -val) / sale * 100 : null;
+  return { ...st, audits, shrink, q1Stores: [...new Set(q1.map(a => a.store))], rt: { ...st.rt, shrink: rateShrink(shrink) } };
+}
 function compute() {
   STORES = {};
   PEOPLE = D.people.map(p => {
-    const st = p.monthStores ? stintStore(p) : storeH1(p.outlet), w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
+    const st0 = p.monthStores ? stintStore(p) : storeH1(p.outlet), st = p.role === 'SM' ? smShrink(p, st0) : st0, w = WEIGHTS[p.role], rt = {}, ach = {}, flags = [];
     const nr = notRated(p), otherStore = p.monthStores && Object.values(p.monthStores).some(x => x.length > 1 || (x.length === 1 && x[0] !== p.outlet));
     if (otherStore) flags.push(`${Object.values(p.monthStores).some(x => x.length > 1) ? 'Stores combined' : 'Moved'}: ${stintText(p)} · ${p.moveSrc === 'HR sheet' ? 'per HR sheet' : 'from ' + p.moveSrc}`);
     if (nr.length && nr.length < D.months.length) flags.push(`Not rated for ${runs(nr)}: ${p.att ? 'no store with more than 15 swipe days' : 'per HR sheet'}`);
@@ -653,7 +664,7 @@ function opsCard(s) {
   ${s.scores.length ? `<div class="tbl-wrap" style="margin:10px 0"><table><thead><tr><th>Scorecard</th>${s.scores.map(x => `<th class="num">${mL(x.m)}</th>`).join('')}<th class="num bl">H1 avg</th></tr></thead><tbody>
   <tr><td>Score</td>${s.scores.map(x => `<td class="num" data-tip="${esc((x.store ? tc(x.store) + ' · ' : '') + (x.zone || ''))}">${fmtP(x.v, 0)}</td>`).join('')}<td class="num bl"><b>${fmtP(s.audit)}</b> ${chip(s.rt.audit)}</td></tr></tbody></table></div>` : ''}
   ${s.audits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Stock audit</th><th>Auditor</th><th class="num">Store sale</th><th class="num">Shrink value</th><th class="num">Qty</th><th class="num">Shrink %</th></tr></thead><tbody>
-  ${s.audits.map(a => `<tr><td>${esc(a.date)}${a.store ? `<div class="cellsub">${esc(tc(a.store))}</div>` : ''}</td><td>${esc(a.auditor)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${fmtN(a.qty)}</td><td class="num">${a.sale ? (-a.value / a.sale * 100).toFixed(3) + '%' : '–'}</td></tr>`).join('')}
+  ${s.audits.map(a => `<tr><td>${esc(a.date)}${a.q ? ` <span class="muted">${esc(a.q)}</span>` : ''}${a.store ? `<div class="cellsub">${esc(tc(a.store))}${a.q1Owner ? ' · Jan–Mar handler' : ''}</div>` : ''}</td><td>${esc(a.auditor)}</td><td class="num">${fmtL(a.sale)}</td><td class="num">₹${fmtN(a.value)}</td><td class="num">${fmtN(a.qty)}</td><td class="num">${a.sale ? (-a.value / a.sale * 100).toFixed(3) + '%' : '–'}</td></tr>`).join('')}
   <tr style="background:var(--surface-2)"><td colspan="5"><b>H1 net loss ÷ store sale</b></td><td class="num"><b>${s.shrink == null ? '–' : s.shrink.toFixed(3) + '%'}</b> ${chip(s.rt.shrink)}</td></tr></tbody></table></div>` : ''}</div>`;
 }
 function attrCard(s) {
@@ -685,7 +696,7 @@ function openPerson(id, role) {
     abv: p.ind ? `Own ${fmtR(p.ind.abv)} vs store ${fmtR(p.ind.sAbv)}` : '',
     upt: p.ind ? `Own ${fmtN(p.ind.upt, 2)} vs store ${fmtN(p.ind.sUpt, 2)}` : '',
     audit: s.audit == null ? 'Awaiting scorecard' : `${s.mixed ? 'Scorecard avg across their stores' : 'Store scorecard avg'} ${fmtP(s.audit)} (${s.scores.length || 1} months)`,
-    shrink: s.shrink == null ? 'Awaiting shrinkage' : `Store shrinkage ${s.shrink.toFixed(3)}% (${s.audits.length || 1} stock audits)`,
+    shrink: s.shrink == null ? (p.role === 'SM' ? 'No stock audit for the stores/months they handled' : 'Awaiting shrinkage') : `Shrinkage ${s.shrink.toFixed(3)}% (${s.audits.length} stock audits${p.role === 'SM' ? `; Q1 audit from the store they handled Jan–Mar${s.q1Stores && s.q1Stores.length ? ': ' + s.q1Stores.map(tc).join(', ') : ' (none)'}` : ''})`,
     attr: s.left == null ? 'Awaiting attrition data' : s.mixed ? `${s.left} people left while they ran each store` : `${s.left} people left the store in H1 (opening ${s.open}, joiners ${s.joiners}, attrition ${fmtP(s.attrPct, 0)})`,
   };
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
@@ -815,7 +826,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for Store Managers and ASMs, <b>attendance swipes: the store where they swiped on more than 15 days that month; if no store passes 15 days, that month is not rated for them</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Q1 shrinkage (Store Managers)</b>: a store&#39;s Q1 stock audit counts for the SM who handled that store in Jan, Feb and Mar (SM Store Mapping sheet), even if they have moved since. Q2 audits count for the SM running the store in the audit month.</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for anyone with attendance data, <b>attendance: the store where they reported on more than 15 days that month; if no store passes 15 days, that month is not rated for them</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
