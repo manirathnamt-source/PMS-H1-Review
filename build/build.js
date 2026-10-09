@@ -166,6 +166,31 @@ if (fs.existsSync(SRC.storeMap)) {
     if (r['Also Handles']) hrAlso[id] = key(r['Also Handles']);   // second store run together with the main one, whole H1
   }
 }
+// SM store mapping sheet (HR): rows = stores, columns = months, cell = SM Emp ID ("1234" or "1234 - Name").
+// For every month column HR filled, it decides each SM's store(s) outright: listed under two stores = combined, under none = not rated.
+SRC.smMap = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/26-27 iteamwise report H1/PMS H1 Inputs - SM Store Mapping.xlsx';
+// A month column only takes effect once HR changes it from what was pre-filled (out/sm-map-baseline.json, written by make-sm-store-sheet.js).
+let smMap = null;
+if (fs.existsSync(SRC.smMap)) {
+  smMap = { filled: new Set(), by: {} };
+  const smBase = fs.existsSync(here('out/sm-map-baseline.json')) ? JSON.parse(fs.readFileSync(here('out/sm-map-baseline.json'))) : null;
+  const col = {};   // col[month][store] = emp id
+  for (const r of X.utils.sheet_to_json(X.readFile(SRC.smMap).Sheets['Store x Month'], { defval: null, raw: false })) {
+    const k = key(r['Store Name']); if (!k) continue;
+    for (const m of MONTHS) {
+      const id = (/^\s*(T?\d+)/.exec(String(r[MLAB[m] + '-26'] || '')) || [])[1];
+      if (id) (col[m] = col[m] || {})[k] = id;
+    }
+  }
+  const sig = o => JSON.stringify(Object.entries(o || {}).sort());
+  for (const m of MONTHS) {
+    const changed = smBase ? sig(col[m]) !== sig(smBase[m]) : Object.keys(col[m] || {}).length > 0;
+    if (!changed) continue;
+    smMap.filled.add(m);
+    for (const [k, id] of Object.entries(col[m] || {})) ((smMap.by[id] = smMap.by[id] || {})[m] = smMap.by[id][m] || []).push(k);
+  }
+  if (smMap.filled.size) console.log('SM mapping sheet applied for months:', [...smMap.filled].join(', '));
+}
 // attendance swipes (SM/ASM): distinct swipe days per store per month
 const doorMap = JSON.parse(fs.readFileSync(here('door-map.json')));
 const attDays = {}, attFirst = {};   // attDays[id][month][store] = days; attFirst[id][month][store] = first swipe date there that month
@@ -217,9 +242,15 @@ for (const p of people) {
   if (also && !isStore(also)) console.warn('store map: unknown "Also Handles" store', p.id, also);
   // stores per month: main store, plus the clubbed store when one person runs both
   const per = Object.fromEntries(MONTHS.map(m => [m, months[m] === NR ? [] : also && isStore(also) && also !== months[m] ? [months[m], also] : [months[m]]]));
+  // SM store mapping sheet overrides everything for the months HR filled
+  if (p.role === 'SM' && smMap) for (const m of MONTHS) {
+    if (!smMap.filled.has(m)) continue;
+    const ks = ((smMap.by[p.id] || {})[m] || []).filter(k => isStore(k) || k === p.outlet);
+    per[m] = ks; months[m] = ks[0] || NR; src[m] = 'SM mapping sheet';
+  }
   if (MONTHS.some(m => per[m].length !== 1 || per[m][0] !== p.outlet)) {
     p.monthStores = per;
-    p.moveSrc = [...new Set([...MONTHS.filter(m => months[m] !== p.outlet).map(m => src[m]), ...(also && isStore(also) ? ['HR sheet'] : [])])].join(' + ');
+    p.moveSrc = [...new Set([...MONTHS.filter(m => per[m].length !== 1 || per[m][0] !== p.outlet).map(m => src[m]), ...(also && isStore(also) ? ['HR sheet'] : [])])].join(' + ');
   }
 }
 fs.mkdirSync(here('out'), { recursive: true });
