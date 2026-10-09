@@ -490,8 +490,11 @@ function compute() {
       if (per.length > 1) flags.push(`Billed in ${per.length} stores`);
       if (bills && !per.some(x => x.o === p.outlet)) flags.push('No billing at listed outlet');
     }
-    const newStore = !st.hasData;
+    // no store mapped to them for any H1 month (e.g. SM Store Mapping sheet gives their store to someone else): not rated, not a new store
+    const unmapped = !!p.monthStores && D.months.every(m => !(p.monthStores[m] || []).length);
+    const newStore = !st.hasData && !unmapped;
     if (newStore) flags.length = 0, flags.push('New store – not rated for H1');
+    if (unmapped) flags.length = 0, flags.push('Not rated: no store mapped to them for Apr–Sep (SM Store Mapping sheet)');
     const scoreOf = r => {
       let sc = 0, sw = 0;
       for (const [k, wt] of Object.entries(w)) if (r[k] != null) { sc += wt * r[k]; sw += wt; }
@@ -658,7 +661,7 @@ function renderPeople(role, base) {
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
-    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for|KPI changed/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated|KPI changed/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
