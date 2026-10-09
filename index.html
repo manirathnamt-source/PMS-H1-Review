@@ -254,6 +254,7 @@ footer { color: var(--muted); font-size: 12px; padding: 20px 0 40px; }
       <select id="fRm" aria-label="Regional Manager"></select>
       <select id="fCm" aria-label="Cluster Manager"></select>
       <select id="fRating" aria-label="Final rating"></select>
+      <select id="fRev" aria-label="Review status"><option value="">Review: all</option><option value="done">Reviewed</option><option value="pending">Review pending</option></select>
       <input id="fq" type="search" placeholder="Search name, emp ID or store">
       <label class="chk"><input type="checkbox" id="fElig" checked> Eligible only</label>
     </div>
@@ -326,6 +327,7 @@ const chip = (r, cls = '') => r == null ? `<span class="chip pend" title="Pendin
 const hasOvr = p => p.kpiOvr && Object.keys(p.kpiOvr).length > 0;
 const ratingChip = p => hasOvr(p) && rOf(p) != null ? `<span class="chip r${rOf(p)}${p.final == null ? ' prov' : ''} ovr" title="After KPI changes (system rating ${p.sysRating ?? '–'})">${rOf(p)}${p.final == null ? '*' : ''} ✎</span>` : p.newStore ? `<span class="chip pend" title="New store">New</span>` : p.final != null ? chip(p.final) : p.provFinal ? `<span class="chip r${p.provFinal} prov" title="Provisional">${p.provFinal}*</span>` : chip(null);
 const rOf = p => p.final ?? p.provFinal ?? null;
+const needsReview = p => p.eligible && !p.newStore && rOf(p) != null;   // only people who have a rating to review
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const sum = (a, f) => a.reduce((x, y) => x + (f(y) || 0), 0);
 const initials = n => String(n || '?').split(/\s+/).filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -509,12 +511,13 @@ function compute() {
     if (changed.length) flags.push('KPI changed: ' + changed.map(k => `${KPI_SHORT[k]} ${sysRt[k] ?? '–'}→${kpiOvr[k].rating}`).join(', '));
     const { sw, pend: pending, score, prov } = scoreOf(rt);
     const sysRating = newStore ? null : finalOf(sys.score) ?? finalOf(sys.prov);
-    return { ...p, st, rt, sysRt, kpiOvr, ach, ind, flags, pending, score, prov, sw, newStore, sysRating, sysScore: sys.score ?? sys.prov, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
+    const review = OVR[ovrKey(p.id, p.role, 'review')] || null;
+    return { ...p, st, rt, sysRt, kpiOvr, review, ach, ind, flags, pending, score, prov, sw, newStore, sysRating, sysScore: sys.score ?? sys.prov, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
   });
 }
 
 /* ---------- shell ---------- */
-const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['RULES', 'How ratings work']];
+const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['REVIEW', 'Review progress'], ['RULES', 'How ratings work']];
 function initUI() {
   $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Pan India · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
   $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; render(); };
@@ -523,7 +526,7 @@ function initUI() {
   opts($('#fRm'), 'All RMs', PEOPLE.map(p => p.rmN));
   opts($('#fCm'), 'All CMs', PEOPLE.map(p => p.cmN));
   $('#fRating').innerHTML = '<option value="">All ratings</option>' + [4, 3, 2, 1].map(r => `<option value="${r}">Rating ${r}</option>`).join('') + '<option value="p">Not final yet</option>';
-  ['#fState', '#fRm', '#fCm', '#fRating', '#fElig'].forEach(s => $(s).onchange = render);
+  ['#fState', '#fRm', '#fCm', '#fRating', '#fRev', '#fElig'].forEach(s => $(s).onchange = render);
   $('#fq').oninput = render;
   $('#exportBtn').onclick = exportCsv;
   $('#calBtn').onclick = openExport;
@@ -532,21 +535,24 @@ function initUI() {
   render();
 }
 function filtered() {
-  const st = $('#fState').value, rm = $('#fRm').value, cm = $('#fCm').value, rt = $('#fRating').value, q = $('#fq').value.trim().toLowerCase(), el = $('#fElig').checked;
+  const st = $('#fState').value, rm = $('#fRm').value, cm = $('#fCm').value, rt = $('#fRating').value, rv = $('#fRev').value, q = $('#fq').value.trim().toLowerCase(), el = $('#fElig').checked;
   return PEOPLE.filter(p => (!st || p.state === st) && (!rm || p.rmN === rm) && (!cm || p.cmN === cm) && (!el || p.eligible)
     && (!rt || (rt === 'p' ? p.final == null : rOf(p) === +rt))
+    && (!rv || (rv === 'done' ? !!p.review : needsReview(p) && !p.review))
     && (!q || (p.name + ' ' + p.id + ' ' + p.outlet).toLowerCase().includes(q)));
 }
 function render() {
   const base = filtered();
   $('#tabs').innerHTML = TABS.map(([k, l]) => {
-    const n = ['SM', 'ASM', 'SSA'].includes(k) ? base.filter(p => p.role === k).length : null;
+    const n = ['SM', 'ASM', 'SSA'].includes(k) ? base.filter(p => p.role === k).length : k === 'REVIEW' ? base.filter(p => needsReview(p) && !p.review).length : null;
     return `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === UI.tab}">${l}${n != null ? ` <span class="cnt">${n}</span>` : ''}</button>`;
   }).join('');
   $('#filters').classList.toggle('hidden', UI.tab === 'RULES');
-  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW'].includes(UI.tab));
+  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW', 'REVIEW'].includes(UI.tab));
+  $('#fRev').classList.toggle('hidden', ['STORES', 'REVIEW'].includes(UI.tab));
   $('#fElig').parentElement.classList.toggle('hidden', UI.tab === 'STORES');
   if (UI.tab === 'OVERVIEW') renderOverview(base);
+  else if (UI.tab === 'REVIEW') renderReview(base);
   else if (UI.tab === 'RULES') renderRules();
   else if (UI.tab === 'STORES') renderStores();
   else renderPeople(UI.tab, base);
@@ -609,6 +615,7 @@ function renderOverview(base) {
     ${tile('var(--hero-b)', 'users', 'People in review', fmtN(elig.length), `${elig.filter(p => p.role === 'SM').length} SM · ${elig.filter(p => p.role === 'ASM').length} ASM · ${elig.filter(p => p.role === 'SSA').length} SA/SSA`)}
     ${tile('var(--r4)', 'check', 'Ratings final', `${fin.length} <span class="muted" style="font-size:15px">/ ${rated.length}</span>`, `${rated.length - fin.length} provisional, waiting on ${[...new Set(rated.filter(p => p.final == null).flatMap(p => p.pending))].map(k => KPI_SHORT[k]).join(', ') || '–'}`, rated.length ? fin.length / rated.length * 100 : 0)}
     ${tile('var(--k-upt)', 'star', 'Average score', fmtN(avgScore, 2), 'weighted, on a 1–4 scale', avgScore ? (avgScore - 1) / 3 * 100 : 0)}
+    ${tile('var(--r4)', 'check', 'Reviews completed', `${elig.filter(p => needsReview(p) && p.review).length} <span class="muted" style="font-size:15px">/ ${elig.filter(needsReview).length}</span>`, 'see Review progress for RM / cluster / store', elig.filter(needsReview).length ? elig.filter(p => needsReview(p) && p.review).length / elig.filter(needsReview).length * 100 : 0)}
     ${tile('var(--k-attr)', 'calc', 'Ratings calibrated', fmtN(elig.filter(hasOvr).length), SYNC === 'ok' ? 'people with a KPI changed in calibration' : SYNC === 'loading' ? 'loading changes…' : 'could not load changes')}
     ${tile(`var(--r${rateAch(sPct) || 1})`, 'rupee', 'Sales vs target (excl. e-com)', fmtP(sPct), `${fmtL(tS)} of ${fmtL(tT)}`, sPct)}
     ${tile(`var(--r${rateAch(cPct) || 1})`, 'door', 'Conversion vs target', fmtP(conv), `target ${fmtP(convT)} · ${fmtP(cPct, 0)} achieved`, cPct)}
@@ -656,7 +663,7 @@ function renderPeople(role, base) {
     : k === 'shrink' ? `${p.ach[k] == null ? '<span class="muted">–</span>' : p.ach[k].toFixed(3) + '%'} ${kc(p, k)}`
     : k === 'attr' ? `${p.ach[k] == null ? '<span class="muted">awaiting</span>' : p.ach[k] + ' left'} ${kc(p, k)}` : achCell(p.ach[k], p.rt[k], 0, (p.kpiOvr || {})[k]);
   const body = rows.map(p => `<tr class="${p.eligible ? '' : 'inel'}" data-id="${esc(p.id)}">
-    <td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td>
+    <td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}${p.review ? ` <span title="Reviewed by ${esc(p.review.by)}" style="color:var(--r4)">✓</span>` : ''}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td>
     <td>${esc(tc(p.outlet))}<div class="cellsub">${esc(p.cmN)}</div></td>
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
@@ -742,9 +749,10 @@ function calibCard(p) {
   const when = t => t ? new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   return `<div class="card" style="border-top:4px solid var(--k-attr)"><h2>Rating calibration</h2>
   <p class="hint">System rating ${p.sysRating != null ? chip(p.sysRating) : '<span class="muted">not rated</span>'} (score ${fmtN(p.sysScore, 2)})${hasOvr(p) ? ` · after KPI changes ${ratingChip(p)} (score ${fmtN(p.score ?? p.prov, 2)})` : ' · no changes'}</p>
+  <div class="result" style="margin:4px 0 10px">${p.review ? `<span style="color:var(--r4);font-weight:700">✓ Reviewed</span> by <b>${esc(p.review.by)}</b>, ${when(p.review.ts)}${p.review.reason && p.review.reason !== 'Reviewed' ? ` · “${esc(p.review.reason)}”` : ''}` : needsReview(p) ? '<b>Review pending</b>' : '<span class="muted">No review needed (not rated)</span>'}<span class="spacer"></span>${needsReview(p) ? `<button class="btn2 ${p.review ? '' : 'primary'}" data-review="${esc(p.id)}|${esc(p.role)}" ${SYNC === 'ok' ? '' : 'disabled'}>${p.review ? 'Undo review' : '✓ Mark as reviewed'}</button>` : ''}</div>
   <p class="hint">To calibrate, click <b>✎</b> next to a parameter in the KPI scorecard below, then give the new rating and the reason. The final rating is recalculated from the weights.</p>
   ${SYNC === 'error' ? '<p class="syncnote">⚠ Could not reach the rating-change store. Changes can’t be saved right now; reload the page to retry.</p>' : SYNC === 'loading' ? '<p class="syncnote">Loading changes…</p>' : ''}
-  ${hist.length ? `<div style="margin-top:10px"><b style="font-size:12.5px">History</b>${hist.map(c => `<div class="hist">${when(c.ts)} · <b>${esc(c.by)}</b> · ${esc(KPI_LABEL[c.kpi] || c.kpi)}: ${c.rating == null ? 'reverted to system rating' : `${c.prev === '' || c.prev == null ? '–' : c.prev} → <b>${c.rating}</b>`}<br>${esc(c.reason)}</div>`).join('')}</div>` : ''}</div>`;
+  ${hist.length ? `<div style="margin-top:10px"><b style="font-size:12.5px">History</b>${hist.map(c => `<div class="hist">${when(c.ts)} · <b>${esc(c.by)}</b> · ${esc(c.kpi === 'review' ? 'Review' : KPI_LABEL[c.kpi] || c.kpi)}: ${c.kpi === 'review' ? (c.rating == null ? 'review undone' : 'marked as reviewed') : c.rating == null ? 'reverted to system rating' : `${c.prev === '' || c.prev == null ? '–' : c.prev} → <b>${c.rating}</b>`}<br>${esc(c.reason)}</div>`).join('')}</div>` : ''}</div>`;
 }
 function openCalib(id, role, kpi) {
   const p = PEOPLE.find(x => x.id === id && x.role === role); if (!p) return;
@@ -794,6 +802,73 @@ function openCalib(id, role, kpi) {
     } catch (e) { err.textContent = 'Could not save: ' + e.message; btn.disabled = false; btn.textContent = 'Save change'; }
   };
 }
+function openReview(id, role) {
+  const p = PEOPLE.find(x => x.id === id && x.role === role); if (!p) return;
+  let me = ''; try { me = localStorage.getItem('h1name') || ''; } catch {}
+  const undo = !!p.review;
+  const host = document.createElement('div');
+  host.className = 'modal';
+  host.innerHTML = `<div class="box" role="dialog" aria-modal="true"><h3>${undo ? 'Undo review' : 'Mark as reviewed'}</h3><div class="muted" style="font-size:13px">${esc(p.name)} · ${esc(p.id)} · ${esc(p.desig)} · rating ${ratingChip(p)}</div>
+    <label class="fld">${undo ? 'Reason for undoing (required)' : 'Comment (optional)'}<textarea id="rWhy" placeholder="${undo ? 'e.g. Reviewed by mistake' : 'e.g. Discussed with SM, rating agreed'}"></textarea></label>
+    <label class="fld">Your name (required)<input id="rBy" value="${esc(me)}" placeholder="Name and role, e.g. Ambarish (CM)"></label>
+    <div class="err" id="rErr"></div>
+    <div class="btnrow"><button class="btn2" id="rCancel">Cancel</button><button class="btn2 primary" id="rSave">${undo ? 'Undo review' : '✓ Mark as reviewed'}</button></div></div>`;
+  document.body.appendChild(host);
+  const close = () => host.remove();
+  host.querySelector('#rCancel').onclick = close;
+  host.onclick = e => { if (e.target === host) close(); };
+  host.querySelector('#rSave').onclick = async () => {
+    const why = host.querySelector('#rWhy').value.trim(), by = host.querySelector('#rBy').value.trim(), err = host.querySelector('#rErr');
+    if (!by || (undo && !why)) { err.textContent = undo ? 'Please give the reason and your name.' : 'Please give your name.'; return; }
+    try { localStorage.setItem('h1name', by); } catch {}
+    const btn = host.querySelector('#rSave'); btn.disabled = true; btn.textContent = 'Saving…'; err.textContent = '';
+    try {
+      await saveChange({ empId: p.id, role: p.role, kpi: 'review', name: p.name, outlet: p.outlet, systemRating: p.sysRating ?? '', prevRating: rOf(p) ?? '', newRating: undo ? '' : 1, reason: why || 'Reviewed', by });
+      await loadChanges(); compute(); render(); close();
+      const dh = document.querySelector('.drawer .dhead h3');
+      if (UI.tab === 'REVIEW' && dh && !document.querySelector('.drawer .kv')) { $('#drawerHost').innerHTML = ''; } else if (document.querySelector('.drawer')) openPerson(p.id, p.role);
+    } catch (e) { err.textContent = 'Could not save: ' + e.message; btn.disabled = false; btn.textContent = undo ? 'Undo review' : '✓ Mark as reviewed'; }
+  };
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-review]'); if (b && !b.disabled) { const [id, role] = b.dataset.review.split('|'); openReview(id, role); } });
+
+/* ---------- review progress page: RM / cluster / store wise ---------- */
+// "Ambarish (CM) (12), Sathish Kumar (3)": who completed the reviews in a group, most first
+const doneBy = l => { const c = {}; l.filter(p => p.review).forEach(p => c[p.review.by] = (c[p.review.by] || 0) + 1); return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([n, k]) => `${esc(n)} (${k})`).join(', '); };
+function progRow(label, sub, l, key) {
+  const n = l.length, d = l.filter(p => p.review).length, pc = n ? d / n * 100 : 0;
+  const c = pc >= 100 ? 'var(--r4)' : pc >= 50 ? 'var(--r3)' : pc > 0 ? 'var(--r2)' : 'var(--r1)';
+  return `<tr ${key}><td><b>${esc(label)}</b>${sub ? `<div class="cellsub">${esc(sub)}</div>` : ''}</td><td class="num">${n}</td><td class="num">${d}</td><td class="num"><b>${n - d}</b></td>
+    <td style="white-space:normal;max-width:280px;font-size:12px">${doneBy(l) || '<span class="muted">–</span>'}</td>
+    <td style="min-width:180px"><div style="display:flex;align-items:center;gap:8px"><div class="meter" style="flex:1;margin:0;--c:${c}"><i style="width:${pc}%"></i></div><span style="font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${pc.toFixed(0)}%</span></div></td></tr>`;
+}
+function renderReview(base) {
+  const all = base.filter(needsReview), done = all.filter(p => p.review).length;
+  const group = (f) => { const g = {}; all.forEach(p => { const k = f(p) || '–'; (g[k] = g[k] || []).push(p); }); return Object.entries(g); };
+  const byPending = (a, b) => (b[1].filter(p => !p.review).length - a[1].filter(p => !p.review).length) || a[0].localeCompare(b[0]);
+  const head = first => `<thead><tr><th>${first}</th><th class="num">Staff</th><th class="num">Reviewed</th><th class="num">Pending</th><th>Done by</th><th>Progress</th></tr></thead>`;
+  const rms = group(p => p.rmN).sort(byPending), cms = group(p => p.cmN).sort(byPending), sts = group(p => p.outlet).sort(byPending);
+  const roleTiles = ['SM', 'ASM', 'SSA'].map(r => { const l = all.filter(p => p.role === r), d = l.filter(p => p.review).length; return tile(AVC[r], 'users', ROLE_NAME[r], `${d} <span class="muted" style="font-size:15px">/ ${l.length}</span>`, `${l.length - d} pending`, l.length ? d / l.length * 100 : 0); }).join('');
+  $('#view').innerHTML = `<div class="tiles">
+    ${tile('var(--r4)', 'check', 'Reviews completed', `${done} <span class="muted" style="font-size:15px">/ ${all.length}</span>`, `${all.length - done} pending · ${all.length ? (done / all.length * 100).toFixed(0) : 0}% done`, all.length ? done / all.length * 100 : 0)}
+    ${roleTiles}
+  </div>
+  ${SYNC !== 'ok' ? `<p class="syncnote">${SYNC === 'loading' ? 'Loading review status…' : '⚠ Could not load review status. Reload the page to retry.'}</p>` : ''}
+  <p class="note">Counts eligible staff who have a rating. Mark people as reviewed from their drill-down (“✓ Mark as reviewed”). Click a row to see who is pending.</p>
+  <div class="card"><h2>Regional Manager wise</h2><div class="tbl-wrap" style="margin-top:10px"><table>${head('Regional Manager')}<tbody>${rms.map(([k, l]) => progRow(k, '', l, `data-rv="rm|${esc(k)}"`)).join('')}</tbody></table></div></div>
+  <div class="card"><h2>Cluster wise</h2><div class="tbl-wrap" style="margin-top:10px"><table>${head('Cluster Manager')}<tbody>${cms.map(([k, l]) => progRow(k, 'RM: ' + (l[0].rmN || '–'), l, `data-rv="cm|${esc(k)}"`)).join('')}</tbody></table></div></div>
+  <div class="card"><h2>Store wise</h2><div class="tbl-wrap" style="margin-top:10px;max-height:640px;overflow-y:auto"><table>${head('Store')}<tbody>${sts.map(([k, l]) => progRow(tc(k), (l[0].cmN || '–') + ' · ' + (l[0].rmN || '–'), l, `data-rv="st|${esc(k)}"`)).join('')}</tbody></table></div></div>`;
+  document.querySelectorAll('tr[data-rv]').forEach(tr => tr.onclick = () => { const [t, k] = tr.dataset.rv.split('|'); openPendingList(t, k, all); });
+}
+function openPendingList(type, k, all) {
+  const l = all.filter(p => type === 'rm' ? p.rmN === k : type === 'cm' ? p.cmN === k : p.outlet === k).sort((a, b) => (!!a.review - !!b.review) || a.outlet.localeCompare(b.outlet) || ['SM', 'ASM', 'SSA'].indexOf(a.role) - ['SM', 'ASM', 'SSA'].indexOf(b.role) || a.name.localeCompare(b.name));
+  const d = l.filter(p => p.review).length;
+  drawer(`<div><h3>${esc(type === 'st' ? tc(k) : k)}</h3><div class="sub">${type === 'rm' ? 'Regional Manager' : type === 'cm' ? 'Cluster Manager' : 'Store'} · ${d} of ${l.length} reviewed · ${l.length - d} pending</div></div>`,
+  `<div class="tbl-wrap"><table><thead><tr><th>Employee</th><th>Store</th><th class="num">Rating</th><th>Reviewed by</th><th></th></tr></thead><tbody>
+  ${l.map(p => `<tr data-id="${esc(p.id)}" data-role="${p.role}"><td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)}</div></div></div></td><td>${esc(tc(p.outlet))}</td><td class="num">${ratingChip(p)}</td>
+    <td>${p.review ? `<span style="color:var(--r4);font-weight:700">✓</span> ${esc(p.review.by)}<div class="cellsub">${new Date(p.review.ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>` : '<b>Pending</b>'}</td><td><button class="btn2 ${p.review ? '' : 'primary'}" style="padding:4px 10px" data-review="${esc(p.id)}|${esc(p.role)}" ${SYNC === 'ok' ? '' : 'disabled'}>${p.review ? 'Undo' : '✓ Reviewed'}</button></td></tr>`).join('')}</tbody></table></div>`);
+  document.querySelectorAll('.drawer tr[data-id]').forEach(tr => tr.onclick = e => { if (e.target.closest('button')) return; openPerson(tr.dataset.id, tr.dataset.role); });
+}
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-calib]'); if (b && !b.disabled) { const [id, role, kpi] = b.dataset.calib.split('|'); openCalib(id, role, kpi); } });
 
 /* ---------- calibration export (HR calibration workbook format: SM / ASM / SSA-SA sheets) ---------- */
@@ -810,6 +885,7 @@ function openExport() {
     <label class="fld">Cluster Manager<select id="xCm"><option value="">All CMs</option>${[...new Set(PEOPLE.map(p => p.cmN))].filter(Boolean).sort().map(c => `<option ${$('#fCm').value === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
     <label class="chk" style="margin:6px 0"><input type="checkbox" id="xElig" checked> Eligible only</label>
     <label class="chk" style="margin:6px 0"><input type="checkbox" id="xChanged"> Only people with a changed parameter</label>
+    <label class="fld">Review status<select id="xRev"><option value="">All</option><option value="done">Reviewed only</option><option value="pending">Pending only</option></select></label>
     <div class="err" id="xErr"></div>
     <div class="btnrow"><button class="btn2" id="xCancel">Cancel</button><button class="btn2 primary" id="xGo">Download Excel</button></div></div>`;
   document.body.appendChild(host);
@@ -817,8 +893,8 @@ function openExport() {
   host.querySelector('#xCancel').onclick = close;
   host.onclick = e => { if (e.target === host) close(); };
   host.querySelector('#xGo').onclick = async () => {
-    const rm = host.querySelector('#xRm').value, cm = host.querySelector('#xCm').value, el = host.querySelector('#xElig').checked, ch = host.querySelector('#xChanged').checked;
-    const list = PEOPLE.filter(p => (!rm || p.rmN === rm) && (!cm || p.cmN === cm) && (!el || p.eligible) && (!ch || hasOvr(p)));
+    const rm = host.querySelector('#xRm').value, cm = host.querySelector('#xCm').value, el = host.querySelector('#xElig').checked, ch = host.querySelector('#xChanged').checked, rv = host.querySelector('#xRev').value;
+    const list = PEOPLE.filter(p => (!rm || p.rmN === rm) && (!cm || p.cmN === cm) && (!el || p.eligible) && (!ch || hasOvr(p)) && (!rv || (rv === 'done' ? !!p.review : needsReview(p) && !p.review)));
     if (!list.length) { host.querySelector('#xErr').textContent = 'Nobody matches these choices.'; return; }
     try { const X = await loadXLSX(); exportCalibration(X, list, [rm || 'All RMs', cm].filter(Boolean).join(' - ') + (ch ? ' - changed' : '')); close(); }
     catch (e) { host.querySelector('#xErr').textContent = e.message; }
@@ -834,8 +910,9 @@ function exportCalibration(X, list, label) {
   const tail = p => [rOf(p) ?? '', '', '', '', remarks(p), p.cmN, p.rmN,
     p.sysRating ?? '', p.sysScore != null ? +p.sysScore.toFixed(2) : '', p.score != null ? +p.score.toFixed(2) : p.prov != null ? +p.prov.toFixed(2) : '',
     ov(p).map(([k]) => KPI_SHORT[k]).join(', '), [...new Set(ov(p).map(([, o]) => o.by))].join(', '), ov(p).length ? when(ov(p).map(([, o]) => o.ts).sort().at(-1)) : '',
-    p.newStore ? 'New store - not rated' : hasOvr(p) ? 'Calibrated' : p.final != null ? 'Final' : 'Provisional', p.monthStores ? stintText(p) : tc(p.outlet)];
-  const extraHead = ['System Rating', 'Weighted Score (system)', 'Weighted Score (after changes)', 'Parameters changed', 'Changed By', 'Changed On', 'Rating Status', 'Store(s) rated'];
+    p.newStore ? 'New store - not rated' : hasOvr(p) ? 'Calibrated' : p.final != null ? 'Final' : 'Provisional', p.monthStores ? stintText(p) : tc(p.outlet),
+    p.review ? 'Reviewed' : needsReview(p) ? 'Pending' : '', p.review ? p.review.by : '', p.review ? when(p.review.ts) : ''];
+  const extraHead = ['System Rating', 'Weighted Score (system)', 'Weighted Score (after changes)', 'Parameters changed', 'Changed By', 'Changed On', 'Rating Status', 'Store(s) rated', 'Review Status', 'Reviewed By', 'Reviewed On'];
   const tailHead = ['', 'Additional comments/Feedback', 'Any Additional responsibilities taken', 'Opportunity of improvement/ Development Areas', 'HR Remarks', 'Curr.Clustermanager', 'Curr.Areamanager', ...extraHead];
   const head13 = ['S.No', 'Emp ID', 'Names', 'Designation', 'Group', 'Outlet Name', 'Gender', 'DOJ', 'Confirmation ', 'State', 'Eligibility', 'Working Status', 'Eligible for  review'];
   const sales = p => [p.st.target || '', p.st.sales || '', pct(p.ach.sales), p.rt.sales ?? '', wsc(p, 'sales')];
