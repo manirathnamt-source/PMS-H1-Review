@@ -17,7 +17,7 @@ const here = p => path.join(__dirname, p);
 const ALIAS = {
   'BLR - AECS LAYOUT': 'BLR - BROOKEFIELD', 'BLR - KR PURAM': 'BLR - K R PURAM', 'INFANTRY ROAD - BELLARI': 'BLY - INFANTRY ROAD',
   'DLF MIDTOWN - DELHI': 'DEL - DLF MIDTOWN MALL', 'M3M, SECTOR 65 - GURUGRAM': 'GUR - M3M ROUTE 65', 'ERODE - PERUNDURAI ROAD': 'ERD - PERUNDURAI ROAD',
-  'BAILEY SQUARE - PATNA': 'PTN - BAILEY SQUARE MALL', 'MUM - NEXUS SEAWOOD MALL': 'MUM - NEXUS SEAWOODS MALL', 'MODEL TOWN - JALANDHAR': 'JLR - ANIKI TOWER MODEL TOWN',
+  'BAILEY SQUARE - PATNA': 'PTN - BAILEY SQUARE MALL', 'MUM - NEXUS SEAWOOD MALL': 'MUM - NEXUS SEAWOODS MALL', 'RPR - ZORA THE MALL': 'THE ZORA MALL - RAIPUR', 'MODEL TOWN - JALANDHAR': 'JLR - ANIKI TOWER MODEL TOWN',
 };
 const key = s => {
   const k = String(s || '').replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim().toUpperCase().replace(/\s*[-–]\s*/, ' - ');
@@ -144,6 +144,8 @@ const people = [], skipped = {};
       state: r['Curr.Location'], eligible, cm: s.cmA || s.cm || '', am: s.rmA || s.rm || '',
       sales: role === 'SSA' ? (empSales[id] || {}) : undefined,
       // monthly own sales and the in-store sales of the store(s) they billed in that month (for contribution %)
+      // own sales per store they sold in, per month (Individual sales table): { store: { month: net } }
+      storeSales: role === 'SSA' ? (() => { const o = {}; for (const [m, e] of Object.entries(empNet[id] || {})) for (const [k, v] of Object.entries(e)) if (v) (o[k] = o[k] || {})[m] = Math.round(v); return o; })() : undefined,
       mSales: role === 'SSA' ? Object.fromEntries(MONTHS.map(m => { const e = (empNet[id] || {})[m] || {}; const own = Object.values(e).reduce((a, v) => a + v, 0); const st = Object.keys(e).reduce((a, k) => a + ((stores[k] && stores[k].m[m] && stores[k].m[m].netI) || 0), 0); return [m, [Math.round(own), Math.round(st)]]; })) : undefined,
     });
   }
@@ -208,26 +210,51 @@ if (fs.existsSync(SRC.smMap)) {
   for (const [k, id] of Object.entries(q1)) S(k).q1sm = id;
   console.log('Q1 shrinkage owners (Jan–Mar SM) set for', Object.keys(q1).length, 'stores');
 }
-// attendance swipes (SM/ASM): distinct swipe days per store per month
+// attendance (all roles): distinct reporting days per store per month. Two file layouts are read from the attendance folder:
+//  - Astra mobile swipes (SM/ASM): "Door/Address" mapped through door-map.json, "Swipe Date" like "30 Apr 2026 22:57:51"
+//  - Retail team login/logout (everyone): store name already in standard form (in the column headed "Designation" — the export
+//    has the two headers swapped, so we take whichever of the two columns is a store), "Swipe Date" like "31-May-26"
+// The big login/logout file is reduced to daily store presence once and cached (out/att-cache-*.json) until the file changes.
 const doorMap = JSON.parse(fs.readFileSync(here('door-map.json')));
 const attDays = {}, attFirst = {};   // attDays[id][month][store] = days; attFirst[id][month][store] = first swipe date there that month
+const MON3 = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
+const dayOf = s => {
+  const t = String(s || '').trim();
+  let m = /^(\d{1,2})[- ]([A-Za-z]{3})[A-Za-z]*[- ](\d{2,4})/.exec(t);           // 31-May-26 / 30 Apr 2026
+  if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${MON3[m[2].toUpperCase()]}-${m[1].padStart(2, '0')}`;
+  m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t); return m ? m[0] : '';
+};
+const addDay = (id, st, day) => {
+  const m = day.slice(0, 7); if (!MONTHS.includes(m)) return;
+  const o = (((attDays[id] = attDays[id] || {})[m] = attDays[id][m] || {})[st] = attDays[id][m][st] || new Set());
+  o.add(day);
+  const fs1 = ((attFirst[id] = attFirst[id] || {})[m] = attFirst[id][m] || {});
+  if (!fs1[st] || day < fs1[st]) fs1[st] = day;
+};
 if (fs.existsSync(SRC.swipes)) {
   const unmapped = {};
   for (const f of fs.readdirSync(SRC.swipes).filter(f => /\.xlsx$/i.test(f) && !f.startsWith('~$'))) {
-    for (const r of X.utils.sheet_to_json(X.readFile(SRC.swipes + f).Sheets.Sheet0 || X.readFile(SRC.swipes + f).Sheets[X.readFile(SRC.swipes + f).SheetNames[0]], { defval: null, raw: false })) {
-      const id = String(r['Employee No'] || '').trim(), door = String(r['Door/Address'] || '').trim(), dt = new Date(String(r['Swipe Date'] || '').slice(0, 11) + ' UTC');
-      if (!id || isNaN(dt)) continue;
-      const m = dt.toISOString().slice(0, 7), day = dt.toISOString().slice(0, 10), st = doorMap[door];
-      if (!st) { unmapped[door] = (unmapped[door] || 0) + 1; continue; }
-      if (!MONTHS.includes(m)) continue;
-      const o = (((attDays[id] = attDays[id] || {})[m] = attDays[id][m] || {})[st] = attDays[id][m][st] || new Set());
-      o.add(day);
-      const fs1 = ((attFirst[id] = attFirst[id] || {})[m] = attFirst[id][m] || {});
-      if (!fs1[st] || day < fs1[st]) fs1[st] = day;
+    const stat = fs.statSync(SRC.swipes + f), cacheF = here(`out/att-cache-${f.replace(/[^\w]+/g, '_')}-${stat.size}-${Math.round(stat.mtimeMs)}.json`);
+    let triples;   // [id, store, day]
+    if (fs.existsSync(cacheF)) triples = JSON.parse(fs.readFileSync(cacheF));
+    else {
+      const wb = X.readFile(SRC.swipes + f), ws = wb.Sheets.Sheet0 || wb.Sheets[wb.SheetNames[0]], seen = new Set();
+      triples = [];
+      for (const r of X.utils.sheet_to_json(ws, { defval: null, raw: false })) {
+        const id = String(r['Employee No'] || '').trim(), day = dayOf(r['Swipe Date']); if (!id || !day) continue;
+        let st;
+        if (r['Door/Address'] != null) { const door = String(r['Door/Address']).trim(); st = doorMap[door]; if (!st) { unmapped[door] = (unmapped[door] || 0) + 1; continue; } }
+        else { const a = key(r['Designation']), b = key(r['Store Name']); st = stores[a] ? a : stores[b] ? b : ''; if (!st) { const u = r['Designation'] || r['Store Name']; unmapped[u] = (unmapped[u] || 0) + 1; continue; } }
+        const k3 = id + '|' + st + '|' + day; if (seen.has(k3)) continue; seen.add(k3); triples.push([id, st, day]);
+      }
+      fs.mkdirSync(here('out'), { recursive: true });
+      fs.writeFileSync(cacheF, JSON.stringify(triples));
+      console.log('attendance file read:', f, triples.length, 'person-store-days');
     }
+    for (const [id, st, day] of triples) addDay(id, st, day);
   }
   for (const id in attDays) for (const m in attDays[id]) for (const st in attDays[id][m]) attDays[id][m][st] = attDays[id][m][st].size;
-  if (Object.keys(unmapped).length) console.warn('swipe doors not in door-map.json (add them):', unmapped);
+  if (Object.keys(unmapped).length) console.warn('attendance stores/doors not mapped (ignored):', unmapped);
 }
 fs.mkdirSync(here('out'), { recursive: true });
 fs.writeFileSync(here('out/att-days.json'), JSON.stringify(attDays));   // everyone incl. people who have left (used by make-sm-store-sheet.js)
@@ -243,9 +270,10 @@ for (const p of people) {
     const [top, n] = Object.entries(bills).filter(([k]) => isStore(k)).sort((a, b) => b[1] - a[1])[0] || [];
     const [aTop, aDays] = useAtt ? Object.entries(attDays[p.id][m] || {}).sort((a, b) => b[1] - a[1])[0] || [] : [];
     let def, defSrc;
-    if (aDays > ATT_MIN_DAYS && (isStore(aTop) || aTop === p.outlet)) { def = aTop; defSrc = 'attendance'; }
+    // staff listed at a new store (no H1 sales) stay unrated unless HR maps them, even if they reported elsewhere (training)
+    if (detect && aDays > ATT_MIN_DAYS && (isStore(aTop) || aTop === p.outlet)) { def = aTop; defSrc = 'attendance'; }
     // SM/ASM with swipe data but no store above the threshold that month: the month is not rated
-    else if (useAtt) { def = NR; defSrc = 'attendance'; }
+    else if (useAtt && detect) { def = NR; defSrc = 'attendance'; }
     else if (detect && n >= MIN_MONTH_BILLS) { def = top; defSrc = 'billing'; }
     else { def = p.outlet; defSrc = 'roster'; }
     if (def === p.outlet && defSrc !== 'attendance') defSrc = 'roster';

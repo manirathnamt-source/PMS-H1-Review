@@ -496,12 +496,12 @@ function compute() {
     const unmapped = !!p.monthStores && D.months.every(m => !(p.monthStores[m] || []).length);
     const newStore = !st.hasData && !unmapped;
     if (newStore) flags.length = 0, flags.push('New store – not rated for H1');
-    if (unmapped) flags.length = 0, flags.push('Not rated: no store mapped to them for Apr–Sep (SM Store Mapping sheet)');
+    if (unmapped) flags.length = 0, flags.push(p.role === 'SM' ? 'Not rated: no store mapped to them for Apr–Sep (SM Store Mapping sheet)' : 'Not rated: no month with more than 15 reporting days at one store');
     const scoreOf = r => {
       let sc = 0, sw = 0;
       for (const [k, wt] of Object.entries(w)) if (r[k] != null) { sc += wt * r[k]; sw += wt; }
       const pend = Object.keys(w).filter(k => r[k] == null);
-      return { sc, sw, pend, score: pend.length || newStore ? null : sc, prov: sw && !newStore ? sc / sw : null };   // provisional: re-weighted over KPIs with data
+      return { sc, sw, pend, score: pend.length || newStore || unmapped ? null : sc, prov: sw && !newStore && !unmapped ? sc / sw : null };   // provisional: re-weighted over KPIs with data
     };
     const sysRt = { ...rt }, sys = scoreOf(sysRt);
     // calibration: a parameter changed in the dashboard replaces that KPI's system rating
@@ -517,7 +517,7 @@ function compute() {
 }
 
 /* ---------- shell ---------- */
-const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['REVIEW', 'Review progress'], ['RULES', 'How ratings work']];
+const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['SALES', 'Individual sales'], ['REVIEW', 'Review progress'], ['RULES', 'How ratings work']];
 function initUI() {
   $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Pan India · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
   $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; render(); };
@@ -548,11 +548,12 @@ function render() {
     return `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === UI.tab}">${l}${n != null ? ` <span class="cnt">${n}</span>` : ''}</button>`;
   }).join('');
   $('#filters').classList.toggle('hidden', UI.tab === 'RULES');
-  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW', 'REVIEW'].includes(UI.tab));
+  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW', 'REVIEW', 'SALES'].includes(UI.tab));
   $('#fRev').classList.toggle('hidden', ['STORES', 'REVIEW'].includes(UI.tab));
   $('#fElig').parentElement.classList.toggle('hidden', UI.tab === 'STORES');
   if (UI.tab === 'OVERVIEW') renderOverview(base);
   else if (UI.tab === 'REVIEW') renderReview(base);
+  else if (UI.tab === 'SALES') renderSales(base);
   else if (UI.tab === 'RULES') renderRules();
   else if (UI.tab === 'STORES') renderStores();
   else renderPeople(UI.tab, base);
@@ -656,12 +657,6 @@ function renderPeople(role, base) {
   </div>`;
   const G = { name: p => p.name, outlet: p => p.outlet, score: p => p.score ?? p.prov, final: p => rOf(p) };
   ks.forEach(k => G[k] = p => p.ach[k]);
-  const showM = role === 'SSA';   // SA/SSA: own sales per month + contribution to store sales
-  const mOwn = (p, m) => ((p.mSales || {})[m] || [0, 0])[0], h1Own = p => D.months.reduce((a, m) => a + mOwn(p, m), 0), h1St = p => D.months.reduce((a, m) => a + ((p.mSales || {})[m] || [0, 0])[1], 0);
-  if (showM) { D.months.forEach(m => G['m' + m] = p => mOwn(p, m)); G.h1 = h1Own; }
-  const mCell = (own, st) => own ? `<b>${fmtL(own)}</b><div class="cellsub">${st ? (own / st * 100).toFixed(1) + '%' : '–'}</div>` : '<span class="muted">–</span>';
-  const mHead = showM ? D.months.map((m, i) => `<th class="num${i ? '' : ' bl'}" data-s="m${m}" title="Own sales (excl. e-com) and % of the store sales that month">${mL(m)}</th>`).join('') + `<th class="num" data-s="h1" title="H1 own sales and contribution">H1</th>` : '';
-  const mCells = p => showM ? D.months.map((m, i) => { const [o, s] = (p.mSales || {})[m] || [0, 0]; return `<td class="num${i ? '' : ' bl'}">${mCell(o, s)}</td>`; }).join('') + `<td class="num" style="background:var(--surface-2)">${mCell(h1Own(p), h1St(p))}</td>` : '';
   const rows = sortRows(all, G);
   const kHead = ks.map(k => `<th class="num bl" data-s="${k}"><span class="kdot" style="background:${KCOL(k)}"></span>${KPI_SHORT[k]} <span class="muted">${Math.round(w[k] * 100)}%</span></th>`).join('');
   const kc = (p, k) => (p.kpiOvr || {})[k] ? `<span class="chip r${p.rt[k]} ovr" title="Changed by ${esc(p.kpiOvr[k].by)}: ${esc(p.kpiOvr[k].reason)}">${p.rt[k]}✎</span>` : chip(p.rt[k]);
@@ -670,7 +665,7 @@ function renderPeople(role, base) {
     : k === 'attr' ? `${p.ach[k] == null ? '<span class="muted">awaiting</span>' : p.ach[k] + ' left'} ${kc(p, k)}` : achCell(p.ach[k], p.rt[k], 0, (p.kpiOvr || {})[k]);
   const body = rows.map(p => `<tr class="${p.eligible ? '' : 'inel'}" data-id="${esc(p.id)}">
     <td><div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}${p.review ? ` <span title="Reviewed by ${esc(p.review.by)}" style="color:var(--r4)">✓</span>` : ''}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)}${p.eligible ? '' : ' · not eligible'}</div></div></div></td>
-    <td>${esc(tc(p.outlet))}<div class="cellsub">${esc(p.cmN)}</div></td>${mCells(p)}
+    <td>${esc(tc(p.outlet))}<div class="cellsub">${esc(p.cmN)}</div></td>
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
@@ -678,7 +673,7 @@ function renderPeople(role, base) {
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
-    <div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${mHead}${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5 + (showM ? D.months.length + 1 : 0)}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th data-s="name">Employee</th><th data-s="outlet">Store / CM</th>${kHead}<th class="num bl" data-s="score">Score</th><th class="num" data-s="final">Rating</th><th>Flags</th></tr></thead><tbody>${body || `<tr><td colspan="${ks.length + 5}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>
     ${done < rated.length ? `<p class="note">* Provisional: ${pendK.map(k => KPI_LABEL[k]).join(', ')} not in yet, so the score is re-weighted over the KPIs that have data. It becomes final once every KPI is in. See “How ratings work”.</p>` : ''}`;
   bindSort(() => renderPeople(role, filtered()));
   $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) openPerson(tr.dataset.id, role); };
@@ -847,6 +842,36 @@ function progRow(label, sub, l, key) {
   return `<tr ${key}><td><b>${esc(label)}</b>${sub ? `<div class="cellsub">${esc(sub)}</div>` : ''}</td><td class="num">${n}</td><td class="num">${d}</td><td class="num"><b>${n - d}</b></td>
     <td style="white-space:normal;max-width:280px;font-size:12px">${doneBy(l) || '<span class="muted">–</span>'}</td>
     <td style="min-width:180px"><div style="display:flex;align-items:center;gap:8px"><div class="meter" style="flex:1;margin:0;--c:${c}"><i style="width:${pc}%"></i></div><span style="font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${pc.toFixed(0)}%</span></div></td></tr>`;
+}
+/* ---------- individual sales (view only; SA/SSA are rated on ABV & UPT, not on their own sales) ---------- */
+function renderSales(base) {
+  const people = base.filter(p => p.role === 'SSA' && p.storeSales && Object.keys(p.storeSales).length);
+  const stMonth = (k, m) => ((D.stores[k] || { m: {} }).m[m] || {}).netI || 0;
+  const cell = (own, st, bold) => own ? `${bold ? '<b>' : ''}${fmtL(own)}${bold ? '</b>' : ''}<div class="cellsub">${st ? (own / st * 100).toFixed(1) + '%' : '–'}</div>` : '<span class="muted">–</span>';
+  // one row per store the person sold in; a total row when they sold in more than one store
+  const rowsOf = p => Object.entries(p.storeSales).map(([k, ms]) => ({ k, ms, h1: D.months.reduce((a, m) => a + (ms[m] || 0), 0), h1st: D.months.reduce((a, m) => a + (ms[m] ? stMonth(k, m) : 0), 0) })).sort((a, b) => b.h1 - a.h1);
+  const totOf = p => { const r = rowsOf(p); return { r, h1: r.reduce((a, x) => a + x.h1, 0), h1st: r.reduce((a, x) => a + x.h1st, 0), m: Object.fromEntries(D.months.map(m => [m, r.reduce((a, x) => a + (x.ms[m] || 0), 0)])), mst: Object.fromEntries(D.months.map(m => [m, r.reduce((a, x) => a + (x.ms[m] ? stMonth(x.k, m) : 0), 0)])) }; };
+  const all = people.map(p => ({ p, t: totOf(p) }));
+  const s = UI.sort && (UI.sort === 'h1' || UI.sort.startsWith('m2')) ? UI.sort : 'h1';
+  const val = x => s === 'h1' ? x.t.h1 : x.t.m[s.slice(1)] || 0;
+  all.sort((a, b) => s === 'name' ? a.p.name.localeCompare(b.p.name) * UI.dir : (val(b) - val(a)) * (UI.sort ? -UI.dir : 1));
+  const totSales = all.reduce((a, x) => a + x.t.h1, 0), multi = all.filter(x => x.t.r.length > 1).length;
+  const head = `<tr><th data-s="name">Employee</th><th>Store sold in</th>${D.months.map((m, i) => `<th class="num${i ? '' : ' bl'}" data-s="m${m}">${mL(m)}</th>`).join('')}<th class="num bl" data-s="h1">H1</th></tr>`;
+  const body = all.map(({ p, t }) => {
+    const who = `<div class="who"><div class="av" style="--avc:${AVC[p.role]}">${esc(initials(p.name))}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${esc(p.id)} · ${esc(p.desig)} · listed at ${esc(tc(p.outlet))}</div></div></div>`;
+    const lines = t.r.map((x, i) => `<tr data-id="${esc(p.id)}">${i === 0 ? `<td rowspan="${t.r.length + (t.r.length > 1 ? 1 : 0)}">${who}</td>` : ''}<td>${esc(tc(x.k))}</td>${D.months.map((m, j) => `<td class="num${j ? '' : ' bl'}">${cell(x.ms[m] || 0, stMonth(x.k, m))}</td>`).join('')}<td class="num bl" style="background:var(--surface-2)">${cell(x.h1, x.h1st, true)}</td></tr>`);
+    if (t.r.length > 1) lines.push(`<tr data-id="${esc(p.id)}" style="background:var(--surface-2)"><td><b>Total (${t.r.length} stores)</b></td>${D.months.map((m, j) => `<td class="num${j ? '' : ' bl'}">${cell(t.m[m], t.mst[m], true)}</td>`).join('')}<td class="num bl">${cell(t.h1, t.h1st, true)}</td></tr>`);
+    return lines.join('');
+  }).join('');
+  $('#view').innerHTML = `<div class="tiles">
+    ${tile('var(--k-abv)', 'users', 'SA / SSA with sales', fmtN(all.length), `${multi} sold in more than one store`)}
+    ${tile('var(--k-sales)', 'rupee', 'Their H1 sales (excl. e-com)', fmtL(totSales), 'sum of individual billing')}
+    ${tile('var(--k-upt)', 'star', 'Median contribution', fmtP(median(all.map(x => x.t.h1st ? x.t.h1 / x.t.h1st * 100 : null).filter(v => v != null)), 1), 'of the store sales where they billed')}
+  </div>
+  <p class="note"><b>For viewing only.</b> SA/SSA ratings use ABV and UPT (their own bills vs the store), not their own sales. Each cell: own sales (bills under their Emp ID, excluding e-commerce) and, below, their share of that store’s in-store sales that month. Click a month or H1 to sort; click a person for their full scorecard.</p>
+  <div class="tbl-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${D.months.length + 3}" class="muted">No one matches these filters.</td></tr>`}</tbody></table></div>`;
+  bindSort(() => renderSales(filtered()));
+  $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) openPerson(tr.dataset.id, 'SSA'); };
 }
 function renderReview(base) {
   const all = base.filter(needsReview), done = all.filter(p => p.review).length;
