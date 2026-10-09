@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>H1 PMS Review</title>
 <style>
 :root {
@@ -736,11 +737,23 @@ function attrCard(s) {
   ${s.exits.length ? `<div class="tbl-wrap"><table><thead><tr><th>Left</th><th>Employee</th><th>Designation</th><th>Joined</th></tr></thead><tbody>
   ${s.exits.slice().sort((a, b) => a.left.localeCompare(b.left)).map(x => `<tr><td>${esc(x.left)}${x.store ? `<div class="cellsub">${esc(tc(x.store))}</div>` : ''}</td><td>${esc(x.name)} <span class="muted">${esc(x.id)}</span></td><td>${esc(x.desig)}</td><td>${esc(x.doj)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nobody left this store in H1.</p>'}</div>`;
 }
+function salesCard(p) {
+  if (p.role !== 'SSA' || !p.storeSales || !Object.keys(p.storeSales).length) return '';
+  const stMonth = (k, m) => ((D.stores[k] || { m: {} }).m[m] || {}).netI || 0;
+  const cell = (own, st, bold) => own ? `${bold ? '<b>' : ''}${fmtL(own)}${bold ? '</b>' : ''}<div class="cellsub">${st ? (own / st * 100).toFixed(1) + '%' : '–'}</div>` : '<span class="muted">–</span>';
+  const rows = Object.entries(p.storeSales).map(([k, ms]) => ({ k, ms, h1: D.months.reduce((a, m) => a + (ms[m] || 0), 0), h1st: D.months.reduce((a, m) => a + (ms[m] ? stMonth(k, m) : 0), 0) })).sort((a, b) => b.h1 - a.h1);
+  const tot = m => rows.reduce((a, x) => a + (x.ms[m] || 0), 0), totSt = m => rows.reduce((a, x) => a + (x.ms[m] ? stMonth(x.k, m) : 0), 0);
+  return `<div class="card"><h2>Individual sales by month</h2><p class="hint">For viewing only (rating uses ABV &amp; UPT). Own sales under their Emp ID, excluding e-commerce; below each: share of that store’s in-store sales that month.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Store</th>${D.months.map((m, i) => `<th class="num${i ? '' : ' bl'}">${mL(m)}</th>`).join('')}<th class="num bl">H1</th></tr></thead><tbody>
+  ${rows.map(x => `<tr><td>${esc(tc(x.k))}</td>${D.months.map((m, i) => `<td class="num${i ? '' : ' bl'}">${cell(x.ms[m] || 0, stMonth(x.k, m))}</td>`).join('')}<td class="num bl" style="background:var(--surface-2)">${cell(x.h1, x.h1st, true)}</td></tr>`).join('')}
+  ${rows.length > 1 ? `<tr style="background:var(--surface-2)"><td><b>Total</b></td>${D.months.map((m, i) => `<td class="num${i ? '' : ' bl'}">${cell(tot(m), totSt(m), true)}</td>`).join('')}<td class="num bl">${cell(rows.reduce((a, x) => a + x.h1, 0), rows.reduce((a, x) => a + x.h1st, 0), true)}</td></tr>` : ''}
+  </tbody></table></div></div>`;
+}
 function attCard(p) {
   if (!p.att) return '';
   const stores = [...new Set(D.months.flatMap(m => Object.keys(p.att[m] || {})))].sort((a, b) => sum(D.months, m => -((p.att[m] || {})[a] || 0)) - sum(D.months, m => -((p.att[m] || {})[b] || 0)));
   const used = m => p.monthStores ? p.monthStores[m] : [p.outlet];
-  return `<div class="card"><h2>Attendance swipes, days per store</h2><p class="hint">A month counts for a store when the person swiped there on <b>more than 15 days</b>. Highlighted = store(s) used for the rating that month.</p>
+  return `<div class="card"><h2>Attendance: reporting days per store</h2><p class="hint">From login/logout and swipe data. A month counts for a store when the person reported there on <b>more than 15 days</b>. Highlighted = store(s) used for the rating that month.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Store</th>${D.months.map(m => `<th class="num">${mL(m)}</th>`).join('')}</tr></thead><tbody>
   ${stores.map(k => `<tr><td>${esc(tc(k))}</td>${D.months.map(m => { const n = (p.att[m] || {})[k]; const on = used(m).includes(k); return `<td class="num" style="${on ? 'background:color-mix(in srgb, var(--r4) 16%, transparent);font-weight:700' : ''}">${n ? n + (n > 15 ? ' ✓' : '') : '<span class="muted">–</span>'}</td>`; }).join('')}</tr>`).join('')}
   </tbody></table></div></div>`;
@@ -1006,11 +1019,12 @@ function openPerson(id, role) {
   ${Object.keys(w).map(k => { const o = (p.kpiOvr || {})[k]; return `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}${o ? `<div class="hist" style="margin-top:6px">✎ Changed ${p.sysRt[k] ?? '–'} → <b>${o.rating}</b> by <b>${esc(o.by)}</b>: ${esc(o.reason)}</div>` : ''}</td><td class="num">${ach(k)}</td><td class="num">${o ? `<span class="chip r${p.rt[k]} ovr">${p.rt[k]}✎</span>` : chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td>${p.newStore ? '' : `<td><button class="btn2" style="padding:4px 10px" data-calib="${esc(p.id)}|${esc(p.role)}|${k}" ${SYNC === 'ok' ? '' : 'disabled'} title="Change this parameter's rating">✎</button></td>`}</tr>`; }).join('')}
   <tr style="background:var(--surface-2)"><td colspan="4"><b>${p.newStore ? 'New store, not rated for H1' : p.score != null ? 'Final weighted score' : `Provisional score: ${fmtN(p.prov * p.sw, 2)} ÷ ${fmtN(p.sw, 2)} (weights with data)`}</b></td><td class="num">${ratingChip(p)}</td><td class="num"><b>${fmtN(p.score ?? p.prov, 2)}</b></td>${p.newStore ? '' : '<td></td>'}</tr>
   </tbody></table></div></div>
+  ${salesCard(p)}${attCard(p)}
   ${p.ind ? `<div class="card"><h2>Individual billing, H1</h2><p class="hint">${fmtL(p.ind.net)} · ${fmtN(p.ind.bills)} bills · ${fmtP(p.ind.contrib)} of store sales</p>
   <div class="tbl-wrap"><table><thead><tr><th>Store</th><th class="num">Sales</th><th class="num">Bills</th><th class="num">ABV</th><th class="num">Store ABV</th><th class="num">UPT</th><th class="num">Store UPT</th></tr></thead><tbody>
   ${p.ind.per.map(x => `<tr><td>${esc(tc(x.o))}</td><td class="num">${fmtL(x.net)}</td><td class="num">${fmtN(x.bills)}</td><td class="num">${fmtR(x.bills ? x.net / x.bills : null)}</td><td class="num">${fmtR(x.sAbv)}</td><td class="num">${fmtN(x.bills ? x.qty / x.bills : null, 2)}</td><td class="num">${fmtN(x.sUpt, 2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No bills under this Emp ID in Apr–Sep.</td></tr>'}
   </tbody></table></div></div>` : ''}
-  ${attCard(p)}<div class="card"><h2>Store month by month · ${esc(s.mixed ? s.name : tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
+  <div class="card"><h2>Store month by month · ${esc(s.mixed ? s.name : tc(s.name))}</h2><div style="margin-top:10px">${monthTable(s)}</div></div>${opsCard(s)}${attrCard(s)}`);
 }
 function weightBar(w, rt) {
   return `<div class="wbar">${Object.entries(w).map(([k, v]) => `<div style="flex:${v};background:${KCOL(k)}" data-tip="${KPI_LABEL[k]}: weight ${Math.round(v * 100)}%${rt ? `, rating ${rt[k] ?? 'pending'}` : ''}">${KPI_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div>`;
