@@ -184,7 +184,9 @@ if (fs.existsSync(SRC.smMap)) {
   }
   const sig = o => JSON.stringify(Object.entries(o || {}).sort());
   for (const m of MONTHS) {
-    const changed = smBase ? sig(col[m]) !== sig(smBase[m]) : Object.keys(col[m] || {}).length > 0;
+    // an empty column is never applied (protects against a blanked / damaged sheet un-rating every SM)
+    if (!Object.keys(col[m] || {}).length) continue;
+    const changed = smBase ? sig(col[m]) !== sig(smBase[m]) : true;
     if (!changed) continue;
     smMap.filled.add(m);
     for (const [k, id] of Object.entries(col[m] || {})) ((smMap.by[id] = smMap.by[id] || {})[m] = smMap.by[id][m] || []).push(k);
@@ -212,6 +214,8 @@ if (fs.existsSync(SRC.swipes)) {
   for (const id in attDays) for (const m in attDays[id]) for (const st in attDays[id][m]) attDays[id][m][st] = attDays[id][m][st].size;
   if (Object.keys(unmapped).length) console.warn('swipe doors not in door-map.json (add them):', unmapped);
 }
+fs.mkdirSync(here('out'), { recursive: true });
+fs.writeFileSync(here('out/att-days.json'), JSON.stringify(attDays));   // everyone incl. people who have left (used by make-sm-store-sheet.js)
 const isStore = k => !!(stores[k] && stores[k].code);                         // a real store with a target row
 const hasH1 = k => Object.values((stores[k] || {}).m || {}).some(x => x.sales);  // new stores have no H1 sales
 const autoMap = [];
