@@ -196,6 +196,19 @@ ul.clean { margin: 6px 0 0; padding-left: 18px; } ul.clean li { margin: 4px 0; }
 .err { color: var(--bad); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
 .pbtn { width: 100%; background: linear-gradient(120deg, var(--hero-b), var(--hero-c)); color: #fff; border: 0; border-radius: 10px; padding: 10px; font-weight: 600; cursor: pointer; }
 #tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page); font-size: 12px; padding: 6px 9px; border-radius: 8px; z-index: 30; display: none; max-width: 280px; white-space: normal; box-shadow: var(--shadow); }
+.modal { position: fixed; inset: 0; display: grid; place-items: center; z-index: 40; background: rgba(10,10,30,.45); padding: 16px; }
+.modal .box { background: var(--surface); border-radius: 16px; padding: 20px; width: min(460px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.modal h3 { margin: 0 0 4px; }
+.fld { display: grid; gap: 4px; margin: 10px 0; font-size: 13px; color: var(--ink-2); }
+.fld select, .fld input, .fld textarea { background: var(--page); border: 1px solid var(--axis); border-radius: 10px; padding: 8px 10px; color: var(--ink); font: inherit; }
+.fld textarea { min-height: 70px; resize: vertical; }
+.btnrow { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+.btn2 { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.btn2.primary { background: linear-gradient(120deg, var(--hero-b), var(--hero-c)); color: #fff; border: 0; font-weight: 600; }
+.btn2:disabled { opacity: .5; cursor: default; }
+.chip.ovr { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--k-attr); }
+.hist { font-size: 12.5px; border-left: 3px solid var(--k-attr); padding: 6px 10px; margin: 6px 0; background: var(--surface-2); border-radius: 0 8px 8px 0; }
+.syncnote { font-size: 12px; color: var(--muted); }
 footer { color: var(--muted); font-size: 12px; padding: 20px 0 40px; }
 @media (max-width: 720px) {
   .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 12px; }
@@ -227,7 +240,8 @@ footer { color: var(--muted); font-size: 12px; padding: 20px 0 40px; }
       <div class="hero-top">
         <div class="brand"><div class="logo">K</div><div><h1>H1 Performance Review · FY 2026-27</h1><div class="sub" id="period"></div></div></div>
         <span class="spacer"></span>
-        <button class="hbtn" id="exportBtn">⤓ Export CSV</button>
+        <button class="hbtn" id="calBtn">⤓ Calibration export</button>
+        <button class="hbtn" id="exportBtn">⤓ CSV</button>
         <button class="hbtn" id="themeBtn" aria-label="Toggle light or dark theme">◐</button>
         <button class="hbtn" id="logoutBtn">Lock</button>
       </div>
@@ -276,6 +290,25 @@ const MIN_BILLS = 50;  // below this, individual ABV/UPT is flagged as a thin sa
 
 /* ---------- state + helpers ---------- */
 let D = null, PEOPLE = [], STORES = {};
+// rating changes are stored in a Google Sheet behind an Apps Script web app (GitHub Pages can't store data)
+const API = 'https://script.google.com/macros/s/AKfycbz8aeejDLSCdtPAVN8ZbEWoJeIelm2Lovy-kaZk6AaoTftBr1-q1pR0YjT_9QT1_Uwu_A/exec';
+let API_KEY = '', CHANGES = [], OVR = {}, SYNC = 'loading';
+const ovrKey = (id, role) => id + '|' + role;
+async function sha256hex(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function loadChanges() {
+  try {
+    const r = await (await fetch(API + '?k=' + API_KEY, { cache: 'no-store' })).json();
+    if (r.error) throw new Error(r.error);
+    CHANGES = (r.rows || []).map(x => ({ id: String(x['Emp ID']), role: x.Role, ts: x.Timestamp, sys: x['System Rating'], prev: x['Previous Rating'], rating: x['New Rating'] === '' ? null : Number(x['New Rating']), reason: x.Reason, by: x['Changed By'], action: x.Action }));
+    OVR = {};
+    CHANGES.slice().sort((a, b) => String(a.ts).localeCompare(String(b.ts))).forEach(c => { OVR[ovrKey(c.id, c.role)] = c.rating == null ? null : c; });
+    SYNC = 'ok';
+  } catch (e) { SYNC = 'error'; console.warn('rating changes not loaded', e); }
+}
+async function saveChange(body) {
+  const r = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: API_KEY, ...body }) })).json();
+  if (r.error) throw new Error(r.error);
+}
 const UI = { tab: 'OVERVIEW', sort: null, dir: 1, exStore: null };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -286,8 +319,8 @@ const fmtN = (v, d = 0) => v == null || !isFinite(v) ? '–' : v.toLocaleString(
 const fmtR = v => v == null || !isFinite(v) ? '–' : '₹' + fmtN(v);
 const mL = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
 const chip = (r, cls = '') => r == null ? `<span class="chip pend" title="Pending data">–</span>` : `<span class="chip r${r} ${cls}">${r}</span>`;
-const ratingChip = p => p.newStore ? `<span class="chip pend" title="New store">New</span>` : p.final != null ? chip(p.final) : p.provFinal ? `<span class="chip r${p.provFinal} prov" title="Provisional">${p.provFinal}*</span>` : chip(null);
-const rOf = p => p.final ?? p.provFinal ?? null;
+const ratingChip = p => p.ovr ? `<span class="chip r${p.ovr.rating} ovr" title="Changed from ${p.sysRating ?? '–'} by ${esc(p.ovr.by)}: ${esc(p.ovr.reason)}">${p.ovr.rating} ✎</span>` : p.newStore ? `<span class="chip pend" title="New store">New</span>` : p.final != null ? chip(p.final) : p.provFinal ? `<span class="chip r${p.provFinal} prov" title="Provisional">${p.provFinal}*</span>` : chip(null);
+const rOf = p => (p.ovr ? p.ovr.rating : null) ?? p.final ?? p.provFinal ?? null;
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const sum = (a, f) => a.reduce((x, y) => x + (f(y) || 0), 0);
 const initials = n => String(n || '?').split(/\s+/).filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -327,7 +360,9 @@ async function decrypt(pass) {
 async function unlock(pass) {
   try { D = await decrypt(pass); } catch { return false; }
   ss.set('h1pass', pass);
-  compute(); initUI(); $('#lock').classList.add('hidden'); $('#app').classList.remove('hidden');
+  API_KEY = await sha256hex('pms-h1-key|' + pass);
+  compute(); initUI();
+  loadChanges().then(() => { compute(); render(); }); $('#lock').classList.add('hidden'); $('#app').classList.remove('hidden');
   return true;
 }
 $('#lockForm').addEventListener('submit', async e => {
@@ -457,7 +492,9 @@ function compute() {
     const pending = Object.keys(w).filter(k => rt[k] == null);
     const score = pending.length || newStore ? null : sc;
     const prov = sw && !newStore ? sc / sw : null;     // provisional: re-weighted over KPIs that have data; new stores are not rated
-    return { ...p, st, rt, ach, ind, flags, pending, score, prov, sw, newStore, final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
+    const ovr = OVR[ovrKey(p.id, p.role)] || null;
+    if (ovr) flags.push(`Rating changed ${(finalOf(score) ?? finalOf(prov)) ?? '–'} → ${ovr.rating} by ${ovr.by}`);
+    return { ...p, st, rt, ach, ind, flags, pending, score, prov, sw, newStore, ovr, sysRating: newStore ? null : finalOf(score) ?? finalOf(prov), final: finalOf(score), provFinal: finalOf(prov), rmN: tc(p.am || st.rm), cmN: tc(p.cm || st.cm) };
   });
 }
 
@@ -474,6 +511,7 @@ function initUI() {
   ['#fState', '#fRm', '#fCm', '#fRating', '#fElig'].forEach(s => $(s).onchange = render);
   $('#fq').oninput = render;
   $('#exportBtn').onclick = exportCsv;
+  $('#calBtn').onclick = openExport;
   $('#themeBtn').onclick = () => { const d = document.documentElement, dark = d.dataset.theme ? d.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; d.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('h1theme', d.dataset.theme); } catch {} };
   $('#foot').innerHTML = 'Ratings are calculated automatically from POS sales, targets, walk-ins, stock audits and the ops scorecard. Click any row for the full workings.';
   render();
@@ -556,6 +594,7 @@ function renderOverview(base) {
     ${tile('var(--hero-b)', 'users', 'People in review', fmtN(elig.length), `${elig.filter(p => p.role === 'SM').length} SM · ${elig.filter(p => p.role === 'ASM').length} ASM · ${elig.filter(p => p.role === 'SSA').length} SA/SSA`)}
     ${tile('var(--r4)', 'check', 'Ratings final', `${fin.length} <span class="muted" style="font-size:15px">/ ${rated.length}</span>`, `${rated.length - fin.length} provisional, waiting on ${[...new Set(rated.filter(p => p.final == null).flatMap(p => p.pending))].map(k => KPI_SHORT[k]).join(', ') || '–'}`, rated.length ? fin.length / rated.length * 100 : 0)}
     ${tile('var(--k-upt)', 'star', 'Average score', fmtN(avgScore, 2), 'weighted, on a 1–4 scale', avgScore ? (avgScore - 1) / 3 * 100 : 0)}
+    ${tile('var(--k-attr)', 'calc', 'Ratings changed', fmtN(elig.filter(p => p.ovr).length), SYNC === 'ok' ? 'manual calibration changes' : SYNC === 'loading' ? 'loading changes…' : 'could not load changes')}
     ${tile(`var(--r${rateAch(sPct) || 1})`, 'rupee', 'Sales vs target (excl. e-com)', fmtP(sPct), `${fmtL(tS)} of ${fmtL(tT)}`, sPct)}
     ${tile(`var(--r${rateAch(cPct) || 1})`, 'door', 'Conversion vs target', fmtP(conv), `target ${fmtP(convT)} · ${fmtP(cPct, 0)} achieved`, cPct)}
   </div>`;
@@ -606,7 +645,7 @@ function renderPeople(role, base) {
     ${ks.map(k => `<td class="num bl">${val(p, k)}</td>`).join('')}
     <td class="num bl"><b>${p.score != null ? fmtN(p.score, 2) : p.prov != null ? `<span class="muted" title="Provisional">${fmtN(p.prov, 2)}*</span>` : '–'}</b></td>
     <td class="num">${ratingChip(p)}</td>
-    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
+    <td>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for|Rating changed/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</td></tr>`).join('');
   $('#view').innerHTML = tiles +
     `<div class="grid2"><div class="card"><h2>${ROLE_NAME[role]} rating mix</h2><p class="hint">${done < rated.length ? 'Includes provisional ratings (*).' : 'All ratings final.'}</p>${ratingCards(rated)}</div>
      <div class="card"><h2>By Cluster Manager</h2><p class="hint">Hover a segment for counts.</p>${[...new Set(all.map(p => p.cmN))].sort().map(c => { const l = all.filter(p => p.cmN === c); return `<div class="srow"><div class="lab">${esc(c)}</div>${stackBar(mix(l), l.length)}<div class="tot">${l.length}</div></div>`; }).join('')}${legend()}</div></div>
@@ -682,6 +721,117 @@ function attCard(p) {
   ${stores.map(k => `<tr><td>${esc(tc(k))}</td>${D.months.map(m => { const n = (p.att[m] || {})[k]; const on = used(m).includes(k); return `<td class="num" style="${on ? 'background:color-mix(in srgb, var(--r4) 16%, transparent);font-weight:700' : ''}">${n ? n + (n > 15 ? ' ✓' : '') : '<span class="muted">–</span>'}</td>`; }).join('')}</tr>`).join('')}
   </tbody></table></div></div>`;
 }
+function calibCard(p) {
+  const hist = CHANGES.filter(c => c.id === p.id && c.role === p.role).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  const when = t => t ? new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return `<div class="card" style="border-top:4px solid var(--k-attr)"><h2>Rating calibration</h2>
+  <p class="hint">System rating ${p.sysRating != null ? chip(p.sysRating) : '<span class="muted">not rated</span>'} ${p.ovr ? `· changed to ${chip(p.ovr.rating, 'ovr')} by <b>${esc(p.ovr.by)}</b>, ${when(p.ovr.ts)}: “${esc(p.ovr.reason)}”` : '· no change'}</p>
+  ${SYNC === 'error' ? '<p class="syncnote">⚠ Could not reach the rating-change store. Changes can’t be saved right now.</p>' : ''}
+  ${p.newStore ? '' : `<button class="btn2 primary" data-calib="${esc(p.id)}|${esc(p.role)}" ${SYNC === 'ok' ? '' : 'disabled'}>✎ Change rating</button>`}
+  ${hist.length ? `<div style="margin-top:10px"><b style="font-size:12.5px">History</b>${hist.map(c => `<div class="hist">${when(c.ts)} · <b>${esc(c.by)}</b>: ${c.rating == null ? 'reverted to system rating' : `${c.prev === '' || c.prev == null ? '–' : c.prev} → <b>${c.rating}</b>`}<br>${esc(c.reason)}</div>`).join('')}</div>` : ''}</div>`;
+}
+function openCalib(id, role) {
+  const p = PEOPLE.find(x => x.id === id && x.role === role); if (!p) return;
+  let me = ''; try { me = localStorage.getItem('h1name') || ''; } catch {}
+  const host = document.createElement('div');
+  host.className = 'modal';
+  host.innerHTML = `<div class="box" role="dialog" aria-modal="true"><h3>Change rating</h3><div class="muted" style="font-size:13px">${esc(p.name)} · ${esc(p.id)} · ${esc(p.desig)}</div>
+    <div class="fld">System rating<div>${p.sysRating != null ? chip(p.sysRating) : '–'} ${p.ovr ? ` · current ${chip(p.ovr.rating, 'ovr')}` : ''}</div></div>
+    <label class="fld">New rating<select id="cNew">${[4, 3, 2, 1].map(r => `<option value="${r}" ${rOf(p) === r ? 'selected' : ''}>${r}</option>`).join('')}${p.ovr ? '<option value="">Undo change (back to system rating)</option>' : ''}</select></label>
+    <label class="fld">Reason for change (required)<textarea id="cWhy" placeholder="e.g. Store was under renovation in Aug; conversion data not representative"></textarea></label>
+    <label class="fld">Your name (required)<input id="cBy" value="${esc(me)}" placeholder="Name and role, e.g. Sathish Kumar (RM)"></label>
+    <div class="err" id="cErr"></div>
+    <div class="btnrow"><button class="btn2" id="cCancel">Cancel</button><button class="btn2 primary" id="cSave">Save change</button></div></div>`;
+  document.body.appendChild(host);
+  const close = () => host.remove();
+  host.querySelector('#cCancel').onclick = close;
+  host.onclick = e => { if (e.target === host) close(); };
+  host.querySelector('#cSave').onclick = async () => {
+    const v = host.querySelector('#cNew').value, why = host.querySelector('#cWhy').value.trim(), by = host.querySelector('#cBy').value.trim(), err = host.querySelector('#cErr');
+    if (!why || !by) { err.textContent = 'Please give the reason and your name.'; return; }
+    if (v !== '' && Number(v) === rOf(p)) { err.textContent = 'That is already the current rating.'; return; }
+    try { localStorage.setItem('h1name', by); } catch {}
+    const btn = host.querySelector('#cSave'); btn.disabled = true; btn.textContent = 'Saving…'; err.textContent = '';
+    try {
+      await saveChange({ empId: p.id, role: p.role, name: p.name, outlet: p.outlet, systemRating: p.sysRating ?? '', prevRating: rOf(p) ?? '', newRating: v === '' ? '' : Number(v), reason: why, by });
+      await loadChanges(); compute(); render(); close(); openPerson(p.id, p.role);
+    } catch (e) { err.textContent = 'Could not save: ' + e.message; btn.disabled = false; btn.textContent = 'Save change'; }
+  };
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-calib]'); if (b) { const [id, role] = b.dataset.calib.split('|'); openCalib(id, role); } });
+
+/* ---------- calibration export (HR calibration workbook format: SM / ASM / SSA-SA sheets) ---------- */
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = () => ok(window.XLSX); s.onerror = () => no(new Error('Excel library did not load')); document.head.appendChild(s); });
+}
+function openExport() {
+  const rms = [...new Set(PEOPLE.map(p => p.rmN))].filter(Boolean).sort();
+  const host = document.createElement('div');
+  host.className = 'modal';
+  host.innerHTML = `<div class="box" role="dialog" aria-modal="true"><h3>Calibration export</h3><div class="muted" style="font-size:13px">Excel in the HR calibration format: SM sheet, ASM sheet, SSA-SA sheet. Final Rating includes any change; the reason goes into HR Remarks.</div>
+    <label class="fld">Regional Manager<select id="xRm"><option value="">All RMs</option>${rms.map(r => `<option ${$('#fRm').value === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
+    <label class="fld">Cluster Manager<select id="xCm"><option value="">All CMs</option>${[...new Set(PEOPLE.map(p => p.cmN))].filter(Boolean).sort().map(c => `<option ${$('#fCm').value === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+    <label class="chk" style="margin:6px 0"><input type="checkbox" id="xElig" checked> Eligible only</label>
+    <label class="chk" style="margin:6px 0"><input type="checkbox" id="xChanged"> Only people whose rating was changed</label>
+    <div class="err" id="xErr"></div>
+    <div class="btnrow"><button class="btn2" id="xCancel">Cancel</button><button class="btn2 primary" id="xGo">Download Excel</button></div></div>`;
+  document.body.appendChild(host);
+  const close = () => host.remove();
+  host.querySelector('#xCancel').onclick = close;
+  host.onclick = e => { if (e.target === host) close(); };
+  host.querySelector('#xGo').onclick = async () => {
+    const rm = host.querySelector('#xRm').value, cm = host.querySelector('#xCm').value, el = host.querySelector('#xElig').checked, ch = host.querySelector('#xChanged').checked;
+    const list = PEOPLE.filter(p => (!rm || p.rmN === rm) && (!cm || p.cmN === cm) && (!el || p.eligible) && (!ch || p.ovr));
+    if (!list.length) { host.querySelector('#xErr').textContent = 'Nobody matches these choices.'; return; }
+    try { const X = await loadXLSX(); exportCalibration(X, list, [rm || 'All RMs', cm].filter(Boolean).join(' - ') + (ch ? ' - changed' : '')); close(); }
+    catch (e) { host.querySelector('#xErr').textContent = e.message; }
+  };
+}
+function exportCalibration(X, list, label) {
+  const pct = v => v == null || !isFinite(v) ? '' : +(v / 100).toFixed(4);
+  const wsc = (p, k) => p.rt[k] != null ? +(WEIGHTS[p.role][k] * p.rt[k]).toFixed(2) : '';
+  const when = t => t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const base = (p, i) => [i + 1, p.id, p.name, p.desig, p.grade || '', p.outlet, '', p.doj || '', '', p.state || '', p.eligible ? 'Yes' : 'No', 'Active', p.eligible ? 'Eligible' : 'Not Eligible'];
+  const tail = p => [rOf(p) ?? '', '', '', '', p.ovr ? p.ovr.reason : '', p.cmN, p.rmN,
+    p.sysRating ?? '', p.score != null ? +p.score.toFixed(2) : p.prov != null ? +p.prov.toFixed(2) : '', p.ovr ? p.ovr.by : '', p.ovr ? when(p.ovr.ts) : '',
+    p.newStore ? 'New store - not rated' : p.ovr ? 'Changed' : p.final != null ? 'Final' : 'Provisional', p.monthStores ? stintText(p) : tc(p.outlet)];
+  const extraHead = ['System Rating', 'Weighted Score (system)', 'Rating Changed By', 'Changed On', 'Rating Status', 'Store(s) rated'];
+  const tailHead = ['', 'Additional comments/Feedback', 'Any Additional responsibilities taken', 'Opportunity of improvement/ Development Areas', 'HR Remarks', 'Curr.Clustermanager', 'Curr.Areamanager', ...extraHead];
+  const head13 = ['S.No', 'Emp ID', 'Names', 'Designation', 'Group', 'Outlet Name', 'Gender', 'DOJ', 'Confirmation ', 'State', 'Eligibility', 'Working Status', 'Eligible for  review'];
+  const sales = p => [p.st.target || '', p.st.sales || '', pct(p.ach.sales), p.rt.sales ?? '', wsc(p, 'sales')];
+  const conv = p => [pct(p.st.convT), pct(p.st.conv), pct(p.ach.conv), p.rt.conv ?? '', wsc(p, 'conv')];
+  const audit = p => [pct(p.ach.audit), p.rt.audit ?? '', wsc(p, 'audit')];
+  const shrink = p => [p.ach.shrink == null ? '' : +p.ach.shrink.toFixed(3), p.rt.shrink ?? '', wsc(p, 'shrink')];
+  const sheets = [
+    { name: 'SM sheet', role: 'SM', groups: [['Final Year Rating Sheet', 13], ['Sales Target VS Achievement (30%)', 5], ['Conversion Rate (30%)', 5], ['Retail Operational Scorecard (20%)', 3], ['Shrinkage (10%)', 3], ['Attrition Control (10%)', 3], ['Final Rating', 1]],
+      head: [...head13, 'Sales Target', 'Sales Achievement', '% of Achievement', 'Rating', 'Weighted Score', 'Conversion Target', 'Conversion Achievement', '% of Achievement', 'Rating', 'Weighted Score', 'Store Score', 'Rating', 'Weighted Score', 'Store Score', 'Rating', 'Weighted Score', 'Attrition %', 'Rating', 'Weighted Score'],
+      row: p => [...sales(p), ...conv(p), ...audit(p), ...shrink(p), p.ach.attr == null ? '' : p.ach.attr + ' left', p.rt.attr ?? '', wsc(p, 'attr')], pctCols: [15, 18, 19, 20, 23] },
+    { name: 'ASM sheet ', role: 'ASM', groups: [['Final Year Rating Sheet', 13], ['Sales Target VS Achievement (30%)', 5], ['Conversion Rate (40%)', 5], ['Retail Operational Scorecard (20%)', 3], ['Shrinkage (10%)', 3], ['Final Rating', 1]],
+      head: [...head13, 'Sales Target', 'Sales Achievement', '% of Achievement', 'Rating', 'Weighted Score', 'Conversion Target', 'Conversion Achievement', '% of Achievement', 'Rating', 'Weighted Score', 'Store Score', 'Rating', 'Weighted Score', 'Store Score', 'Rating', 'Weighted Score'],
+      row: p => [...sales(p), ...conv(p), ...audit(p), ...shrink(p)], pctCols: [15, 18, 19, 20, 23] },
+    { name: 'SSA-SA sheet', role: 'SSA', groups: [['Final Year Rating Sheet', 13], ['Sales Target VS Achievement (20%)', 5], ['Average bill value - Stove ABV Vs Individual ABV (25%)', 5], ['UPT - Stove UPT Vs Individual UPT (25%)', 5], ['Retail Operational Scorecard (20%)', 3], ['Shrinkage (10%)', 3], ['Final Rating', 1]],
+      head: [...head13, 'Sales Target', 'Sales Achievement', '% of Achievement', 'Rating', 'Weighted Score', 'Store ABV', 'Individual ABV', 'ABV %', 'Rating', 'Weighted Score', 'Store UPT', 'Individual UPT', 'UPT %', 'Rating', 'Weighted Score', 'Store Score', 'Rating', 'Weighted Score', 'Store Score', 'Rating', 'Weighted Score'],
+      row: p => [...sales(p), p.ind && p.ind.sAbv ? Math.round(p.ind.sAbv) : '', p.ind && p.ind.abv ? Math.round(p.ind.abv) : '', pct(p.ach.abv), p.rt.abv ?? '', wsc(p, 'abv'),
+        p.ind && p.ind.sUpt ? +p.ind.sUpt.toFixed(2) : '', p.ind && p.ind.upt ? +p.ind.upt.toFixed(2) : '', pct(p.ach.upt), p.rt.upt ?? '', wsc(p, 'upt'), ...audit(p), ...shrink(p)], pctCols: [15, 20, 25, 28] },
+  ];
+  const wb = X.utils.book_new();
+  for (const sh of sheets) {
+    const people = list.filter(p => p.role === sh.role).sort((a, b) => a.outlet.localeCompare(b.outlet) || a.name.localeCompare(b.name));
+    const r1 = [], merges = []; let c = 0;
+    for (const [t, n] of sh.groups) { r1.push(t, ...Array(n - 1).fill(null)); merges.push({ s: { r: 0, c }, e: { r: n === 1 ? 1 : 0, c: c + n - 1 } }); c += n; }
+    r1.push(...Array(tailHead.length - 1 - extraHead.length).fill(null), 'Dashboard details (not in the original template)', ...Array(extraHead.length - 1).fill(null));
+    merges.push({ s: { r: 0, c: c + tailHead.length - 1 - extraHead.length }, e: { r: 0, c: c + tailHead.length - 2 } });
+    const aoa = [r1, [...sh.head, ...tailHead], ...people.map((p, i) => [...base(p, i), ...sh.row(p), ...tail(p)])];
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = aoa[1].map((h, i) => ({ wch: i === 2 ? 26 : i === 5 ? 30 : /Remarks|comments|responsib|Opportunity|Store\(s\)/.test(h || '') ? 34 : 13 }));
+    for (let r = 2; r < aoa.length; r++) for (const pc of sh.pctCols) { const a = X.utils.encode_cell({ r, c: pc }); if (ws[a] && typeof ws[a].v === 'number') ws[a].z = '0.0%'; }
+    for (let r = 2; r < aoa.length; r++) for (const col of [13, 14]) { const a = X.utils.encode_cell({ r, c: col }); if (ws[a] && typeof ws[a].v === 'number') ws[a].z = '#,##0'; }
+    X.utils.book_append_sheet(wb, ws, sh.name);
+  }
+  X.writeFile(wb, `PMS H1 Calibration - ${label.replace(/[\\/:*?"<>|]/g, '')} - ${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 function drawer(head, body) {
   $('#drawerHost').innerHTML = `<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true"><div class="dhead">${head}<span class="spacer"></span><button class="hbtn" id="dClose">Close</button></div><div class="dbody">${body}</div></aside>`;
   const close = () => { $('#drawerHost').innerHTML = ''; document.removeEventListener('keydown', onKey); };
@@ -702,7 +852,8 @@ function openPerson(id, role) {
   const ach = k => k === 'audit' ? fmtP(p.ach[k]) : k === 'shrink' ? (p.ach[k] == null ? '–' : p.ach[k].toFixed(3) + '%') : k === 'attr' ? (p.ach[k] ?? '–') : fmtP(p.ach[k], 1);
   drawer(`<div class="av" style="--avc:${AVC[p.role]};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.id)} · ${esc(p.desig)} · ${esc(tc(p.outlet))}</div></div><div style="margin-left:8px">${p.final != null ? chip(p.final, 'lg') : p.provFinal ? `<span class="chip lg r${p.provFinal} prov">${p.provFinal}*</span>` : ''}</div>`,
   `<div class="kv"><div><b>Band</b>${esc(p.grade || '–')}</div><div><b>DOJ</b>${esc(p.doj || '–')}</div><div><b>State</b>${esc(p.state || '–')}</div><div><b>Review</b>${p.eligible ? 'Eligible' : 'Not eligible'}</div><div><b>Cluster Manager</b>${esc(p.cmN)}</div><div><b>Regional Manager</b>${esc(p.rmN)}</div></div>
-  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  ${p.flags.length ? `<p>${p.flags.map(f => `<span class="flag${/New store|Moved:|Stores combined:|Not rated for|Rating changed/.test(f) ? ' info' : ''}">${esc(f)}</span>`).join('')}</p>` : ''}
+  ${calibCard(p)}
   <div class="card"><h2>KPI scorecard</h2><p class="hint">Weighted = weight × rating. The weighted values add up to the score.</p>${weightBar(w, p.rt)}
   <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th></tr></thead><tbody>
   ${Object.keys(w).map(k => `<tr><td><span class="kdot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${KCOL(k)};margin-right:6px"></span>${KPI_LABEL[k]}</td><td class="num">${Math.round(w[k] * 100)}%</td><td style="white-space:normal">${basis[k]}</td><td class="num">${ach(k)}</td><td class="num">${chip(p.rt[k])}</td><td class="num">${p.rt[k] != null ? fmtN(w[k] * p.rt[k], 2) : '–'}</td></tr>`).join('')}
@@ -826,7 +977,7 @@ function renderRules() {
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
     <li>conversion-data.csv: daily walk-ins and bills per store</li>
-    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Q1 shrinkage (Store Managers)</b>: a store&#39;s Q1 stock audit counts for the SM who handled that store in Jan, Feb and Mar (SM Store Mapping sheet), even if they have moved since. Q2 audits count for the SM running the store in the audit month.</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for anyone with attendance data, <b>attendance: the store where they reported on more than 15 days that month; if no store passes 15 days, that month is not rated for them</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
+    <li>Shrinkage &amp; operational scorecard detail, Apr–Sep '26</li><li>Retail Attrition Data, Pan India: store exits Apr–Sep (SM attrition KPI)</li><li><b>Rating changes</b>: a rating changed in the dashboard (with a reason and the name of who changed it) replaces the system rating everywhere and in the exports; every change is kept in the “PMS H1 Rating Changes” Google Sheet.</li><li><b>Q1 shrinkage (Store Managers)</b>: a store&#39;s Q1 stock audit counts for the SM who handled that store in Jan, Feb and Mar (SM Store Mapping sheet), even if they have moved since. Q2 audits count for the SM running the store in the audit month.</li><li>Attendance swipes (Astra), Apr–Sep: SM &amp; ASM swipe days per store, used to decide which store a manager is rated on each month</li><li><b>Store moves during H1</b>: each person is rated month by month on the store they were in. The store for a month comes from, in this order: a change HR made in the “Monthly Store Map” sheet; for anyone with attendance data, <b>attendance: the store where they reported on more than 15 days that month; if no store passes 15 days, that month is not rated for them</b>; the person&#39;s own billing (the store with most bills, at least 10 that month); otherwise their current branch. Where one person runs two stores together (“Also Handles” in the sheet), both stores are added up: total sales vs total target, pooled walk-ins and bills, and the audits and exits of both. Sales, conversion, ops scorecard, stock audits and exits are taken only for the months at each store.</li>
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
