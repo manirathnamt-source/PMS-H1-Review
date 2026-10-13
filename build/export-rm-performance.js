@@ -52,6 +52,69 @@ const label = l => l.level === 'RM' ? `RM: ${l.name}` : `   Cluster: ${l.name}`;
 const wb = X.utils.book_new();
 const stamp = `H1 FY 2026-27 (Apr–Sep 2026) · sales exclude e-commerce · generated ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
 
+/* ---- RM and CM ratings (Retail Goal FY 2025-26 KPI sheets: "CM KPI" and "RM KPI" with their Rating tabs) ---- */
+const rateAch = p => p == null ? null : p <= 70 ? 1 : p <= 90 ? 2 : p <= 100 ? 3 : 4;                 // sales / conversion achievement %
+const rateAudit = p => p == null ? null : p < 80 ? 1 : p < 90 ? 2 : p < 95 ? 3 : 4;                    // store ops scorecard %
+const rateShrink = p => p == null ? null : p > 0.125 ? 1 : p > 0.075 ? 2 : p >= 0.055 ? 3 : 4;         // store shrinkage %
+const rateStores = p => p == null ? null : p < 50 ? 1 : p < 65 ? 2 : p <= 80 ? 3 : 4;                  // CM: % of stores at rating 3 or better
+const rateAttr = p => p == null ? null : p > 40 ? 0 : p > 30 ? 1 : p > 25 ? 2 : p >= 20 ? 3 : 4;       // attrition %
+const finalOf = s => s == null ? null : Math.min(4, Math.max(1, Math.round(+s.toFixed(4))));
+const SHRINK_EXEMPT = ['BLR - COMMERCIAL STREET'];   // "Except commercial street store" on the KPI sheets
+// one store's H1 KPI ratings (the same rules the dashboard applies to stores)
+const storeRt = x => {
+  const h = roll([x], M), sh = shrink([x]);
+  return { conv: rateAch(h.convAch == null ? null : h.convAch * 100), ops: rateAudit(h.ops == null ? null : h.ops * 100), shrink: SHRINK_EXEMPT.includes(x.k) ? null : rateShrink(sh) };
+};
+// share of a group's stores that reach rating 3+ on a KPI (stores without data for it are left out)
+const share = (g, k) => { const r = g.map(x => storeRt(x)[k]).filter(v => v != null); return r.length ? { ok: r.filter(v => v >= 3).length, n: r.length, pct: r.filter(v => v >= 3).length / r.length * 100 } : null; };
+function rating(l) {
+  const h = roll(l.g, M), a = attr(l.g), aPct = a.pct == null ? null : a.pct * 100, rows = [];
+  const add = (kpi, w, basis, ach, r) => rows.push({ kpi, w, basis, ach, r });
+  add('Sales Target', l.level === 'RM' ? .40 : .35, `₹${(h.sales / 1e7).toFixed(2)} Cr of ₹${(h.target / 1e7).toFixed(2)} Cr`, h.ach == null ? '' : (h.ach * 100).toFixed(1) + '%', rateAch(h.ach == null ? null : h.ach * 100));
+  if (l.level === 'RM') {
+    add('Selling Effectiveness (Conversion)', .25, `${(h.conv * 100).toFixed(1)}% vs target ${(h.convT * 100).toFixed(1)}%`, (h.convAch * 100).toFixed(1) + '%', rateAch(h.convAch * 100));
+    add('Process Improvement & Initiative Impact', .15, 'Manager assessment (min. 2 impactful initiatives a year)', 'Pending', null);
+    add('Salary to Sales Ratio', .10, 'Target 10%; salary data not available', 'Pending', null);
+    add('Team Development & Retention', .10, `${a.exits} exits, attrition ${aPct == null ? '–' : aPct.toFixed(1) + '%'} (promotion % not available)`, aPct == null ? '' : aPct.toFixed(1) + '%', rateAttr(aPct));
+  } else {
+    const c = share(l.g, 'conv'), o = share(l.g, 'ops'), s = share(l.g, 'shrink');
+    const sh = (x, what) => x ? `${x.ok} of ${x.n} stores at rating 3+ on ${what}` : 'No data';
+    add('Selling Effectiveness (Conversion)', .35, sh(c, 'conversion'), c ? c.pct.toFixed(0) + '% of stores' : '', rateStores(c && c.pct));
+    add('Retail Operational Scorecard', .15, sh(o, 'ops scorecard'), o ? o.pct.toFixed(0) + '% of stores' : '', rateStores(o && o.pct));
+    add('Team Development', .10, `${a.exits} exits, attrition ${aPct == null ? '–' : aPct.toFixed(1) + '%'} (promotion % not available)`, aPct == null ? '' : aPct.toFixed(1) + '%', rateAttr(aPct));
+    add('Shrinkage Control', .05, sh(s, 'shrinkage') + (l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? ' (Commercial Street excluded)' : ''), s ? s.pct.toFixed(0) + '% of stores' : '', rateStores(s && s.pct));
+  }
+  const have = rows.filter(x => x.r != null), sw = have.reduce((p, x) => p + x.w, 0), sc = have.reduce((p, x) => p + x.w * x.r, 0);
+  const full = have.length === rows.length;
+  return { rows, score: sw ? (full ? sc : sc / sw) : null, full, pending: rows.filter(x => x.r == null).map(x => x.kpi) };
+}
+
+// 0. Ratings: one block per RM / CM with every KPI, its basis, rating and weighted points
+{
+  const aoa = [['RM and Cluster Manager ratings, H1 FY 2026-27'], [stamp], [],
+    ['Name', 'Role', 'Stores', 'Weighted score', 'Rating', 'Status', 'Pending KPIs']];
+  const res = levels.map(l => ({ l, R: rating(l) }));
+  for (const { l, R } of res) aoa.push([l.name, l.level === 'RM' ? 'Regional Manager' : `Cluster Manager (RM ${l.rm})`, l.g.length, R.score == null ? '' : +R.score.toFixed(2), finalOf(R.score) ?? '', R.full ? 'Final' : 'Provisional', R.pending.join('; ')]);
+  aoa.push([], ['KPI DETAIL'], ['Name', 'Role', 'KPI', 'Weight', 'Basis', 'Achievement', 'Rating', 'Weighted']);
+  const d0 = aoa.length;
+  for (const { l, R } of res) {
+    for (const x of R.rows) aoa.push([l.name, l.level === 'RM' ? 'RM' : 'CM', x.kpi, x.w, x.basis, x.ach, x.r ?? 'Pending', x.r == null ? '' : +(x.w * x.r).toFixed(2)]);
+    aoa.push([l.name, '', R.full ? 'Final score' : 'Provisional score (re-weighted over KPIs with data)', '', '', '', finalOf(R.score) ?? '', R.score == null ? '' : +R.score.toFixed(2)], []);
+  }
+  aoa.push(['How these are rated (Retail Goal FY 2025-26 KPI sheets)'],
+    ['Sales and (RM) conversion: achievement % 70 or below = 1, 70.1–90 = 2, 90.1–100 = 3, above 100 = 4.'],
+    ['CM conversion, ops scorecard, shrinkage: % of the cluster’s stores at rating 3 or better: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4.'],
+    ['A store reaches rating 3 on: conversion above 90% of target; ops scorecard 90% or more; shrinkage 0.075% or less. Commercial Street is left out of shrinkage.'],
+    ['Team development: attrition % above 40 = 0, 30–40 = 1, 25–30 = 2, 20–25 = 3, below 20 = 4. Promotion % is not available, so attrition alone is used.'],
+    ['RM Process Improvement (15%) and Salary to Sales Ratio (10%) need manual input; until then the RM score is provisional: weighted points ÷ weights with data.'],
+    ['RM Selling Effectiveness uses conversion only (no UPT targets). Final rating = score rounded to the nearest whole number (x.5 rounds up).']);
+  const ws = X.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 22 }, { wch: 32 }, { wch: 44 }, { wch: 14 }, { wch: 52 }, { wch: 16 }, { wch: 9 }, { wch: 10 }];
+  for (let r = d0; r < aoa.length; r++) { const a = X.utils.encode_cell({ r, c: 3 }); if (ws[a] && typeof ws[a].v === 'number') ws[a].z = '0%'; }
+  X.utils.book_append_sheet(wb, ws, 'Ratings');
+  for (const { l, R } of res) console.log(`${label(l).padEnd(34)} score ${R.score == null ? '–' : R.score.toFixed(2)} → rating ${finalOf(R.score) ?? '–'} ${R.full ? '' : '(provisional)'} | ` + R.rows.map(x => `${x.kpi.split(' ')[0]} ${x.r ?? 'P'}`).join(', '));
+}
+
 // 1. Summary: one row per RM / cluster, all four KPI groups
 {
   const aoa = [['RM and cluster performance: target vs achievement, conversion, attrition, operational scorecard'], [stamp], [],
@@ -100,16 +163,16 @@ const stamp = `H1 FY 2026-27 (Apr–Sep 2026) · sales exclude e-commerce · gen
 {
   const aoa = [['Store-wise detail'], [stamp], [],
     ['Regional Manager', 'Cluster Manager', 'Store', 'Code', 'Target', 'Achievement', 'Ach %', 'Walk-ins', 'Bills', 'Conversion', 'Conv. target', 'Conv. ach %', 'Opening HC', 'Joiners', 'Exits', 'Closing HC', 'Attrition %',
-      ...M.slice(0, 5).map(m => 'Ops ' + ML(m)), 'Ops H1 avg', 'Shrinkage %', ...M.map(m => 'Sales ach ' + ML(m))]];
+      ...M.slice(0, 5).map(m => 'Ops ' + ML(m)), 'Ops H1 avg', 'Shrinkage %', ...M.map(m => 'Sales ach ' + ML(m)), 'Conv. rating', 'Ops rating', 'Shrink rating']];
   for (const l of levels.filter(x => x.level === 'Cluster')) for (const x of l.g.slice().sort((a, b) => a.k.localeCompare(b.k))) {
     const h = roll([x], M), a = attr([x]), sh = shrink([x]), i = x.s.inp || {};
     aoa.push([l.rm, l.name, x.k, x.s.code, h.target || '', h.sales || '', r4(h.ach), h.wi || '', h.bills || '', r4(h.conv), r4(h.convT), r4(h.convAch),
       i.left != null ? a.open : '', i.left != null ? a.join : '', i.left != null ? a.exits : '', i.left != null ? a.close : '', i.left != null ? r4(a.pct) : '',
-      ...M.slice(0, 5).map(m => r4(roll([x], [m]).ops)), r4(h.ops), sh == null ? '' : +sh.toFixed(3), ...M.map(m => r4(roll([x], [m]).ach))]);
+      ...M.slice(0, 5).map(m => r4(roll([x], [m]).ops)), r4(h.ops), sh == null ? '' : +sh.toFixed(3), ...M.map(m => r4(roll([x], [m]).ach)), storeRt(x).conv ?? '', storeRt(x).ops ?? '', SHRINK_EXEMPT.includes(x.k) ? 'exempt' : storeRt(x).shrink ?? '']);
   }
   const ws = X.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 34 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, ...Array(24).fill({ wch: 11 })];
-  ws['!autofilter'] = { ref: `A4:AD${aoa.length}` };
+  ws['!autofilter'] = { ref: `A4:AG${aoa.length}` };
   fmt(ws, aoa, 4, [6, 9, 10, 11, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29], [4, 5, 7, 8]);
   X.utils.book_append_sheet(wb, ws, 'Store wise');
 }
