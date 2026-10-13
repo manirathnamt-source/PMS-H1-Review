@@ -73,6 +73,18 @@ function salesSheet(l, no) {
   sh.num = M.flatMap((_, i) => [2 + i * 3, 3 + i * 3]).concat(2 + M.length * 3, 3 + M.length * 3);
   return sh;
 }
+function convSheetCM(l, no) {
+  const sh = sheet(`${no} Conversion`, `${no}. Selling Effectiveness (Conversion): ${l.title}`, "Counted month by month, not on the half-year total: a store achieves the month when its conversion is above 90% of that month's target. Conversion = bills ÷ walk-ins.");
+  const rows = sorted(l.g).map(x => { const v = M.map(m => roll([x], [m])), have = v.filter(z => z.convAch != null); return [tc(x.k), ...v.flatMap(z => z.convAch == null ? ['', '', ''] : [r4(z.conv), r4(z.convT), r4(z.convAch)]), have.filter(z => z.convAch > 0.9).length, have.length]; });
+  const c = l.R.conv;
+  rows.push(['Stores achieved (above 90%)', ...c.byMonth.flatMap(z => ['', '', z.ok]), c.ok, '']);
+  rows.push(['Stores with a target', ...c.byMonth.flatMap(z => ['', '', z.n]), '', c.n]);
+  table(sh, ['Store', ...M.flatMap(m => [ML(m) + ' conv.', ML(m) + ' target', ML(m) + ' ach %']), 'Months achieved', 'Months counted'], rows, [rows.length - 2, rows.length - 1]);
+  sh.aoa.push([`Rating: ${c.ok} of ${c.n} store-months achieved = ${c.pct.toFixed(0)}% → rating ${rateStores(c.pct)}`], ["Scale (share achieved): below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Achieved = conversion above 90% of the month's target (store rating 3 or better)."]);
+  sh.pctRows = { cols: M.flatMap((_, i) => [1 + i * 3, 2 + i * 3, 3 + i * 3]), upto: rows.length - 1, f: '0.0%' }; sh.pct = []; sh.num = [];
+  sh.mark = { cols: M.map((_, i) => 4 + i * 3), rows: rows.length - 2 };   // ach % cells shaded green when above 90%
+  return sh;
+}
 function convSheet(l, no) {
   const cmRule = l.level !== 'RM';
   const sh = sheet(`${no} Conversion`, `${no}. Selling Effectiveness (Conversion): ${l.title}`, 'Conversion = bills ÷ walk-ins. Target = the store target conversion, weighted by target walk-ins. Achievement = actual ÷ target.');
@@ -119,16 +131,21 @@ function attrSheet(l, no) {
   return sh;
 }
 function shrinkSheet(l, no) {
-  const sh = sheet(`${no} Shrinkage`, `${no}. Shrinkage Control: ${l.title}`, 'Each quarter is rated on its own (net loss ÷ store sale of that quarter\'s stock audits), then the quarter ratings are averaged. A net excess counts as 0%.');
+  const sh = sheet(`${no} Shrinkage`, `${no}. Shrinkage Control: ${l.title}`, "Counted quarter by quarter: a store achieves the quarter when that quarter's shrinkage (net loss ÷ store sale of its stock audits) is 0.075% or less. A net excess counts as 0%.");
+  const yes = q => q == null || q.rt == null ? '' : q.rt >= 3 ? 'Yes' : 'No';
   const rows = sorted(l.g).map(x => {
-    const ex = SHRINK_EXEMPT.includes(x.k), s = shrinkOf(x);
-    return [tc(x.k), ...s.q.flatMap(q => q ? [q.sale, q.value, q.pct == null ? '' : +(q.pct / 100).toFixed(6), q.rt ?? ''] : ['', '', '', '']), ex ? 'Exempt' : s.rt ?? '', ex ? 'Exempt' : s.rt == null ? 'No audit' : s.rt >= 3 ? 'Yes' : 'No'];
+    const ex = SHRINK_EXEMPT.includes(x.k), s = shrinkOf(x), have = s.q.filter(q => q && q.rt != null);
+    return [tc(x.k), ...s.q.flatMap(q => q ? [q.sale, q.value, q.pct == null ? '' : +(q.pct / 100).toFixed(6), q.rt ?? '', ex ? 'Exempt' : yes(q)] : ['', '', '', '', ex ? 'Exempt' : 'No audit']), ex ? 'Exempt' : have.filter(q => q.rt >= 3).length, ex ? 'Exempt' : have.length];
   });
-  table(sh, ['Store', ...QS.flatMap(q => [q + ' store sale', q + ' shrink value', q + ' shrink %', q + ' rating']), 'Average rating', 'Achieved (rating 3+)'], rows);
   const s = l.R.shrinkShare;
-  sh.aoa.push([s ? `Rating: ${s.ok} of ${s.n} stores at rating 3 or better = ${s.pct.toFixed(0)}% of stores → rating ${rateStores(s.pct)}` : 'Rating: no stock audits'],
-    ['Store scale: above 0.125% = 1, 0.076–0.125% = 2, 0.055–0.075% = 3, below 0.055% = 4. Cluster scale (share of stores at rating 3+): below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Commercial Street is left out.']);
-  sh.pct3 = [3, 7]; sh.pct = []; sh.num = [1, 2, 5, 6];
+  if (s) {
+    rows.push(['Stores achieved (0.075% or less)', ...s.qs.flatMap(q => ['', '', '', '', q.ok]), s.ok, '']);
+    rows.push(['Stores audited', ...s.qs.flatMap(q => ['', '', '', '', q.n]), '', s.n]);
+  }
+  table(sh, ['Store', ...QS.flatMap(q => [q + ' store sale', q + ' shrink value', q + ' shrink %', q + ' rating', q + ' achieved']), 'Quarters achieved', 'Quarters audited'], rows, s ? [rows.length - 2, rows.length - 1] : []);
+  sh.aoa.push([s ? `Rating: ${s.ok} of ${s.n} store-quarters achieved = ${s.pct.toFixed(0)}% → rating ${rateStores(s.pct)}` : 'Rating: no stock audits'],
+    ['Quarter scale: above 0.125% = 1, 0.076–0.125% = 2, 0.055–0.075% = 3, below 0.055% = 4. Cluster scale (share achieved): below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Commercial Street is left out.']);
+  sh.pct3 = [3, 8]; sh.pct = []; sh.num = [1, 2, 6, 7];
   return sh;
 }
 
@@ -136,8 +153,8 @@ function shrinkSheet(l, no) {
 function rate(l) {
   const h = roll(l.g, M), a = attr(l.g), ap = a.pct == null ? null : a.pct * 100, R = { h, a };
   const share = f => { const r = l.g.map(f).filter(v => v != null); return r.length ? { ok: r.filter(v => v >= 3).length, n: r.length, pct: r.filter(v => v >= 3).length / r.length * 100 } : null; };
-  R.convShare = share(x => { const c = roll([x], M).convAch; return rateAch(c == null ? null : c * 100); });
-  R.shrinkShare = share(x => SHRINK_EXEMPT.includes(x.k) ? null : shrinkOf(x).rt);
+  { const cb = M.map(m => { const v = l.g.map(x => roll([x], [m]).convAch).filter(z => z != null); return { ok: v.filter(z => z > 0.9).length, n: v.length }; }); R.conv = { byMonth: cb, ok: sum(cb, z => z.ok), n: sum(cb, z => z.n) }; R.conv.pct = R.conv.n ? R.conv.ok / R.conv.n * 100 : null; }
+  { const qs = QS.map((n, i) => { const v = l.g.filter(x => !SHRINK_EXEMPT.includes(x.k)).map(x => shrinkOf(x).q[i]).filter(q => q && q.rt != null); return { q: n, ok: v.filter(q => q.rt >= 3).length, n: v.length }; }), ok = sum(qs, z => z.ok), n = sum(qs, z => z.n); R.shrinkShare = n ? { qs, ok, n, pct: ok / n * 100 } : null; }
   const bm = OPS_M.map(m => { const v = l.g.map(x => score(x, m)).filter(z => z != null); return { ok: v.filter(z => z >= 90).length, n: v.length }; });
   R.ops = { byMonth: bm, ok: sum(bm, z => z.ok), n: sum(bm, z => z.n) }; R.ops.pct = R.ops.n ? R.ops.ok / R.ops.n * 100 : null;
   const sales = { remark: `${l.g.length} stores. ${L(h.sales)} of ${L(h.target)} (excl. e-commerce)`, ach: P(h.ach), r: rateAch(h.ach * 100) };
@@ -150,10 +167,10 @@ function rate(l) {
     14: team };
   else R.rows = {
     10: sales,
-    11: { remark: `${R.convShare.ok} of ${R.convShare.n} stores at rating 3 or better on conversion. Cluster conversion ${P(h.conv)} vs target ${P(h.convT)}.`, ach: R.convShare.pct.toFixed(0) + '% of stores', r: rateStores(R.convShare.pct) },
+    11: { remark: M.map((m, i) => `${ML(m)} ${R.conv.byMonth[i].ok}/${R.conv.byMonth[i].n}`).join(', ') + `. ${R.conv.ok} of ${R.conv.n} store-months above 90% of target. Cluster conversion ${P(h.conv)} vs target ${P(h.convT)}.`, ach: R.conv.pct.toFixed(0) + '% achieved', r: rateStores(R.conv.pct) },
     12: { remark: OPS_M.map((m, i) => `${ML(m)} ${bm[i].ok}/${bm[i].n}`).join(', ') + `. ${R.ops.ok} of ${R.ops.n} store-months at 90% or above.`, ach: R.ops.pct.toFixed(0) + '% achieved', r: rateStores(R.ops.pct) },
     13: team,
-    14: { remark: R.shrinkShare ? `${R.shrinkShare.ok} of ${R.shrinkShare.n} stores at rating 3 or better (each quarter rated, then averaged)${l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? '. Commercial Street excluded.' : '.'}` : 'No stock audits', ach: R.shrinkShare ? R.shrinkShare.pct.toFixed(0) + '% of stores' : '', r: R.shrinkShare ? rateStores(R.shrinkShare.pct) : null } };
+    14: { remark: R.shrinkShare ? R.shrinkShare.qs.map(q => `${q.q} ${q.ok}/${q.n}`).join(', ') + `. ${R.shrinkShare.ok} of ${R.shrinkShare.n} store-quarters at 0.075% or less${l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? '. Commercial Street excluded.' : '.'}` : 'No stock audits', ach: R.shrinkShare ? R.shrinkShare.pct.toFixed(0) + '% achieved' : '', r: R.shrinkShare ? rateStores(R.shrinkShare.pct) : null } };
   return R;
 }
 
@@ -164,14 +181,14 @@ for (const rm of rms) {
   const levels = [{ level: 'RM', name: rm, g, title: `RM ${rm}` }, ...[...new Set(g.map(x => x.cm))].sort().map(cm => ({ level: 'CM', name: cm, rm, g: g.filter(x => x.cm === cm), title: `Cluster ${cm} (RM ${rm})` }))];
   for (const l of levels) {
     l.R = rate(l);
-    const sheets = l.level === 'RM' ? [salesSheet(l, 1), convSheet(l, 2), attrSheet(l, 5)] : [salesSheet(l, 1), convSheet(l, 2), opsSheet(l, 3), attrSheet(l, 4), shrinkSheet(l, 5)];
+    const sheets = l.level === 'RM' ? [salesSheet(l, 1), convSheet(l, 2), attrSheet(l, 5)] : [salesSheet(l, 1), convSheetCM(l, 2), opsSheet(l, 3), attrSheet(l, 4), shrinkSheet(l, 5)];
     const wb = X.utils.book_new();
     for (const sh of sheets) {
       const ws = X.utils.aoa_to_sheet(sh.aoa);
       for (const t of sh.tables) for (let r = t.head; r < t.last; r++) {
         const z = (c, f) => { const a = X.utils.encode_cell({ r, c }); if (ws[a] && typeof ws[a].v === 'number') ws[a].z = f; };
         sh.pct.forEach(c => z(c, '0.0%')); sh.num.forEach(c => z(c, '#,##0')); (sh.pct3 || []).forEach(c => z(c, '0.000%'));
-        if (sh.pctRows && r < t.head + sh.pctRows.upto) sh.pctRows.cols.forEach(c => z(c, '0%'));
+        if (sh.pctRows && r < t.head + sh.pctRows.upto) sh.pctRows.cols.forEach(c => z(c, sh.pctRows.f || '0%'));
       }
       X.utils.book_append_sheet(wb, ws, sh.name);
     }
@@ -182,7 +199,7 @@ for (const rm of rms) {
       file: path.join(OUT, `Retail Goal - ${role} - ${l.name} - H1 FY 2026-27.xlsx`).replace(/\//g, '\\'), backup: backup.replace(/\//g, '\\'),
       manager: l.level === 'RM' ? 'Praveen Kumar - Retail Business Head' : `${rm} - Regional Manager`,
       rows: Object.entries(l.R.rows).map(([row, v]) => ({ row: +row, ...v })),
-      sheets: sheets.map(sh => ({ name: sh.name, tables: sh.tables, rows: sh.aoa.length })),
+      sheets: sheets.map(sh => ({ name: sh.name, tables: sh.tables, rows: sh.aoa.length, mark: sh.mark ? { cols: sh.mark.cols.map(c => c + 1), first: sh.tables[0].head + 1, last: sh.tables[0].head + sh.mark.rows } : null })),
     });
     const sc = Object.values(l.R.rows);
     console.log(`${role.padEnd(17)} ${l.name.padEnd(18)} ${sc.map(v => v.r ?? '-').join(' ')}  | ${sc.map(v => v.ach || '-').join(' | ')}`);

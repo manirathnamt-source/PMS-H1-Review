@@ -892,6 +892,10 @@ function mgrAttr(g) {
 }
 const opsMonths = () => D.months.filter(m => Object.values(D.stores).some(s => ((s.inp || {}).scores || []).some(z => z.m === m)));
 const opsCount = (g, m) => { const v = g.map(x => (((x.s.inp || {}).scores || []).find(z => z.m === m) || {}).v).filter(z => z != null); return { ok: v.filter(z => z >= 90).length, n: v.length }; };
+// conversion, month by month: a store achieves the month when its conversion is above 90% of that month's target (rating 3+)
+const convCount = (g, m) => { const v = g.map(x => { const c = x.s.m[m] || {}; return c.wiT > 0 && c.cvT > 0 && c.wi > 0 ? c.cBills / c.wi / c.cvT * 100 : null; }).filter(z => z != null); return { ok: v.filter(z => z > 90).length, n: v.length }; };
+// shrinkage, quarter by quarter: a store achieves the quarter when that quarter's shrinkage is 0.075% or less (rating 3+)
+const shrinkCount = g => { const by = {}; g.filter(x => !SHRINK_EXEMPT.includes(x.k)).forEach(x => storeH1(x.k).shrinkQ.forEach(q => { const b = by[q.q] || (by[q.q] = { q: q.q, ok: 0, n: 0 }); b.n++; if (q.rt >= 3) b.ok++; })); const qs = Object.values(by).sort((a, b) => a.q.localeCompare(b.q)), ok = sum(qs, x => x.ok), n = sum(qs, x => x.n); return n ? { qs, ok, n, pct: ok / n * 100 } : null; };
 const storeShare = (g, k) => { const r = g.map(x => k === 'shrink' && SHRINK_EXEMPT.includes(x.k) ? null : storeH1(x.k).rt[k]).filter(v => v != null); return r.length ? { ok: r.filter(v => v >= 3).length, n: r.length, pct: r.filter(v => v >= 3).length / r.length * 100 } : null; };
 function mgrList() {
   const st = mgrStores(), out = [];
@@ -913,11 +917,11 @@ function mgrRate(l) {
     add('salary', 'Target 10%. Salary data is not in the dashboard; enter the rating with ✎.', 'Manual', null);
     team();
   } else {
-    const c = storeShare(l.g, 'conv'), s = storeShare(l.g, 'shrink'), om = opsMonths(), oc = om.map(m => opsCount(l.g, m)), ook = sum(oc, x => x.ok), on = sum(oc, x => x.n);
-    add('conv', c ? `${c.ok} of ${c.n} stores at rating 3+ on conversion` : 'No data', c ? fmtP(c.pct, 0) + ' of stores' : '–', rateStoresPct(c && c.pct));
+    const cc = D.months.map(m => convCount(l.g, m)), cok = sum(cc, x => x.ok), cn = sum(cc, x => x.n), s = shrinkCount(l.g), om = opsMonths(), oc = om.map(m => opsCount(l.g, m)), ook = sum(oc, x => x.ok), on = sum(oc, x => x.n);
+    add('conv', cn ? D.months.map((m, i) => `${mL(m)} ${cc[i].ok}/${cc[i].n}`).join(', ') + ` = ${cok} of ${cn} store-months above 90% of target` : 'No data', cn ? fmtP(cok / cn * 100, 0) + ' achieved' : '–', rateStoresPct(cn ? cok / cn * 100 : null));
     add('ops', on ? om.map((m, i) => `${mL(m)} ${oc[i].ok}/${oc[i].n}`).join(', ') + ` = ${ook} of ${on} store-months at 90%+` : 'No data', on ? fmtP(ook / on * 100, 0) + ' achieved' : '–', rateStoresPct(on ? ook / on * 100 : null));
     team();
-    add('shrink', s ? `${s.ok} of ${s.n} stores at rating 3+ on shrinkage${l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? ' (Commercial Street excluded)' : ''}` : 'No data', s ? fmtP(s.pct, 0) + ' of stores' : '–', rateStoresPct(s && s.pct));
+    add('shrink', s ? s.qs.map(q => `${q.q} ${q.ok}/${q.n}`).join(', ') + ` = ${s.ok} of ${s.n} store-quarters at 0.075% or less${l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? ' (Commercial Street excluded)' : ''}` : 'No data', s ? fmtP(s.pct, 0) + ' achieved' : '–', rateStoresPct(s && s.pct));
   }
   const sc = rs => { const have = rs.filter(x => x != null); return have; };
   const calc = f => { const have = rows.filter(x => f(x) != null), sw = sum(have, x => x.w), pts = sum(have, x => x.w * f(x)); return { full: have.length === rows.length, score: sw ? (have.length === rows.length ? pts : pts / sw) : null }; };
@@ -1277,7 +1281,8 @@ function renderRules() {
     <div class="srow" style="grid-template-columns:minmax(110px,170px) 1fr"><div class="lab"><b>Cluster Manager</b></div><div class="wbar">${Object.entries(MGR_W.CM).map(([k, v]) => `<div style="flex:${v};background:${MGR_COL[k]}">${MGR_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div></div>
     <ul class="clean">
       <li><b>Sales</b> (RM and CM) and <b>RM conversion</b>: achievement % of the whole region or cluster: 70 or below = 1, 70.1–90 = 2, 90.1–100 = 3, above 100 = 4.</li>
-      <li><b>CM conversion and shrinkage</b>: the share of the cluster's stores at rating 3 or better on that KPI: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Commercial Street is left out of shrinkage.</li>
+      <li><b>CM conversion</b>: counted month by month, not on the half-year total. Each month, a store achieves when its conversion is above 90% of that month's target (rating 3 or better). Rating uses total store-months achieved ÷ total store-months: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Example: 10 stores over 6 months = 60 store-months; 40 achieved = 67% = rating 3.</li>
+      <li><b>CM shrinkage</b>: counted quarter by quarter in the same way. Each quarter, a store achieves when that quarter's shrinkage is 0.075% or less (rating 3 or better). Rating uses store-quarters achieved ÷ store-quarters audited, on the same scale. Commercial Street is left out.</li>
       <li><b>CM ops scorecard</b>: counted month by month, not averaged. Each month: stores at 90% or above out of the stores scored; the rating uses total achieved ÷ total store-months, on the same bands.</li>
       <li><b>Team development</b>: attrition % (exits ÷ average headcount): above 40 = 0, 30–40 = 1, 25–30 = 2, 20–25 = 3, below 20 = 4. Promotion % is not available.</li>
       <li><b>RM Process Improvement and Salary to Sales</b>: no data in the dashboard; a rating is entered by hand with ✎ and a reason. Until then the RM rating is provisional (*).</li>

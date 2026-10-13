@@ -72,6 +72,12 @@ try {
         $excel.ActiveWindow.FreezePanes = $true
         $excel.ActiveWindow.DisplayGridlines = $false
       }
+      if ($null -ne $s.mark) {   # shade the months a store achieved (above 90% of target)
+        foreach ($c in $s.mark.cols) { foreach ($rw in $s.mark.first..$s.mark.last) {
+          $cell = $after.Cells.Item($rw, $c)
+          if ($cell.Value2 -is [double]) { if ($cell.Value2 -gt 0.9) { $cell.Interior.Color = 13561798; $cell.Font.Bold = $true } else { $cell.Interior.Color = 13551615 } }
+        } }
+      }
       $after.PageSetup.Orientation = 2
       $after.PageSetup.Zoom = $false
       $after.PageSetup.FitToPagesWide = 1

@@ -77,6 +77,17 @@ const share = (g, k) => { const r = g.map(x => storeRt(x)[k]).filter(v => v != n
 const OPS_MONTHS = M.filter(m => stores.some(x => ((x.s.inp || {}).scores || []).some(z => z.m === m)));
 const opsMonth = (g, m) => { const v = g.map(x => (((x.s.inp || {}).scores || []).find(z => z.m === m) || {}).v).filter(z => z != null); return { ok: v.filter(z => z >= 90).length, n: v.length }; };
 const opsAll = g => { const a = OPS_MONTHS.map(m => opsMonth(g, m)); const ok = a.reduce((p, x) => p + x.ok, 0), n = a.reduce((p, x) => p + x.n, 0); return n ? { ok, n, pct: ok / n * 100, byMonth: a } : null; };
+// conversion, month by month: stores above 90% of that month's conversion target (rating 3+) out of the stores with a target that month
+const convMonth = (g, m) => { const v = g.map(x => roll([x], [m]).convAch).filter(z => z != null); return { ok: v.filter(z => z > 0.9).length, n: v.length }; };
+const convAll = g => { const a = M.map(m => convMonth(g, m)); const ok = a.reduce((p, x) => p + x.ok, 0), n = a.reduce((p, x) => p + x.n, 0); return n ? { ok, n, pct: ok / n * 100, byMonth: a } : null; };
+// shrinkage, quarter by quarter: stores at 0.075% or less in the quarter (rating 3+) out of the stores audited that quarter
+const shrinkAll = g => {
+  const by = {};
+  for (const x of g) { if (SHRINK_EXEMPT.includes(x.k)) continue; const q = {}; for (const a of (x.s.inp || {}).audits || []) (q[a.q || 'Audit'] = q[a.q || 'Audit'] || []).push(a);
+    for (const [n, a] of Object.entries(q)) { const sale = sum(a, z => z.sale), val = sum(a, z => z.value), rt = rateShrink(sale ? Math.max(0, -val) / sale * 100 : null); if (rt == null) continue; const b = by[n] || (by[n] = { q: n, ok: 0, n: 0 }); b.n++; if (rt >= 3) b.ok++; } }
+  const qs = Object.values(by).sort((a, b) => a.q.localeCompare(b.q)), ok = sum(qs, z => z.ok), n = sum(qs, z => z.n);
+  return n ? { qs, ok, n, pct: ok / n * 100 } : null;
+};
 function rating(l) {
   const h = roll(l.g, M), a = attr(l.g), aPct = a.pct == null ? null : a.pct * 100, rows = [];
   const add = (kpi, w, basis, ach, r) => rows.push({ kpi, w, basis, ach, r });
@@ -87,12 +98,12 @@ function rating(l) {
     add('Salary to Sales Ratio', .10, 'Target 10%; salary data not available', 'Pending', null);
     add('Team Development & Retention', .10, `${a.exits} exits, attrition ${aPct == null ? '–' : aPct.toFixed(1) + '%'} (promotion % not available)`, aPct == null ? '' : aPct.toFixed(1) + '%', rateAttr(aPct));
   } else {
-    const c = share(l.g, 'conv'), o = opsAll(l.g), s = share(l.g, 'shrink');
+    const c = convAll(l.g), o = opsAll(l.g), s = shrinkAll(l.g);
     const sh = (x, what) => x ? `${x.ok} of ${x.n} stores at rating 3+ on ${what}` : 'No data';
-    add('Selling Effectiveness (Conversion)', .35, sh(c, 'conversion'), c ? c.pct.toFixed(0) + '% of stores' : '', rateStores(c && c.pct));
+    add('Selling Effectiveness (Conversion)', .35, c ? M.map((m, i) => `${ML(m)} ${c.byMonth[i].ok}/${c.byMonth[i].n}`).join(', ') + ` = ${c.ok} of ${c.n} store-months above 90% of target` : 'No data', c ? c.pct.toFixed(0) + '% achieved' : '', rateStores(c && c.pct));
     add('Retail Operational Scorecard', .15, o ? OPS_MONTHS.map((m, i) => `${ML(m)} ${o.byMonth[i].ok}/${o.byMonth[i].n}`).join(', ') + ` = ${o.ok} of ${o.n} store-months achieved (90%+)` : 'No data', o ? o.pct.toFixed(0) + '% achieved' : '', rateStores(o && o.pct));
     add('Team Development', .10, `${a.exits} exits, attrition ${aPct == null ? '–' : aPct.toFixed(1) + '%'} (promotion % not available)`, aPct == null ? '' : aPct.toFixed(1) + '%', rateAttr(aPct));
-    add('Shrinkage Control', .05, sh(s, 'shrinkage') + (l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? ' (Commercial Street excluded)' : ''), s ? s.pct.toFixed(0) + '% of stores' : '', rateStores(s && s.pct));
+    add('Shrinkage Control', .05, (s ? s.qs.map(q => `${q.q} ${q.ok}/${q.n}`).join(', ') + ` = ${s.ok} of ${s.n} store-quarters at 0.075% or less` : 'No data') + (l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? ' (Commercial Street excluded)' : ''), s ? s.pct.toFixed(0) + '% achieved' : '', rateStores(s && s.pct));
   }
   const have = rows.filter(x => x.r != null), sw = have.reduce((p, x) => p + x.w, 0), sc = have.reduce((p, x) => p + x.w * x.r, 0);
   const full = have.length === rows.length;
@@ -113,8 +124,9 @@ function rating(l) {
   }
   aoa.push(['How these are rated (Retail Goal FY 2025-26 KPI sheets)'],
     ['Sales and (RM) conversion: achievement % 70 or below = 1, 70.1–90 = 2, 90.1–100 = 3, above 100 = 4.'],
-    ['CM conversion, ops scorecard, shrinkage: % of the cluster’s stores at rating 3 or better: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4.'],
-    ['A store reaches rating 3 on: conversion above 90% of target; shrinkage rated each quarter (0.075% or less = 3) and the quarter ratings averaged to 3 or more. Commercial Street is left out of shrinkage.'],
+    ['CM conversion, ops scorecard, shrinkage: share achieved: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4.'],
+    ['CM conversion is counted month by month, not on the half-year total: each month, stores above 90% of that month’s conversion target out of the stores with a target; the rating uses total achieved ÷ total store-months.'],
+    ['CM shrinkage is counted quarter by quarter: each quarter, stores at 0.075% shrinkage or less out of the stores audited; the rating uses total achieved ÷ total store-quarters. Commercial Street is left out.'],
     ['Ops scorecard is counted month by month, not averaged: each month, stores scoring 90% or above (Green zone) out of the stores scored; the rating uses total achieved ÷ total store-months (Apr–Aug).'],
     ['Team development: attrition % above 40 = 0, 30–40 = 1, 25–30 = 2, 20–25 = 3, below 20 = 4. Promotion % is not available, so attrition alone is used.'],
     ['RM Process Improvement (15%) and Salary to Sales Ratio (10%) need manual input; until then the RM score is provisional: weighted points ÷ weights with data.'],
