@@ -518,7 +518,7 @@ function compute() {
 }
 
 /* ---------- shell ---------- */
-const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['SALES', 'Individual sales'], ['REVIEW', 'Review progress'], ['RULES', 'How ratings work']];
+const TABS = [['OVERVIEW', 'Overview'], ['SM', 'Store Managers'], ['ASM', 'Asst. Store Managers'], ['SSA', 'SA & SSA'], ['STORES', 'Stores'], ['MGR', 'RM & CM'], ['SALES', 'Individual sales'], ['REVIEW', 'Review progress'], ['RULES', 'How ratings work']];
 function initUI() {
   $('#period').textContent = `${mL(D.months[0])}–${mL(D.months.at(-1))} 2026 · Pan India · data built ${new Date(D.generated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
   $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; UI.tab = b.dataset.k; UI.sort = null; render(); };
@@ -549,12 +549,14 @@ function render() {
     return `<button class="tab" role="tab" data-k="${k}" aria-selected="${k === UI.tab}">${l}${n != null ? ` <span class="cnt">${n}</span>` : ''}</button>`;
   }).join('');
   $('#filters').classList.toggle('hidden', UI.tab === 'RULES');
-  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW', 'REVIEW', 'SALES'].includes(UI.tab));
-  $('#fRev').classList.toggle('hidden', ['STORES', 'REVIEW'].includes(UI.tab));
-  $('#fElig').parentElement.classList.toggle('hidden', UI.tab === 'STORES');
+  $('#fRating').classList.toggle('hidden', ['STORES', 'OVERVIEW', 'REVIEW', 'SALES', 'MGR'].includes(UI.tab));
+  $('#fRev').classList.toggle('hidden', ['STORES', 'REVIEW', 'MGR'].includes(UI.tab));
+  $('#fElig').parentElement.classList.toggle('hidden', ['STORES', 'MGR'].includes(UI.tab));
+  $('#fState').classList.toggle('hidden', UI.tab === 'MGR');
   if (UI.tab === 'OVERVIEW') renderOverview(base);
   else if (UI.tab === 'REVIEW') renderReview(base);
   else if (UI.tab === 'SALES') renderSales(base);
+  else if (UI.tab === 'MGR') renderMgr();
   else if (UI.tab === 'RULES') renderRules();
   else if (UI.tab === 'STORES') renderStores();
   else renderPeople(UI.tab, base);
@@ -856,6 +858,130 @@ function progRow(label, sub, l, key) {
     <td style="white-space:normal;max-width:280px;font-size:12px">${doneBy(l) || '<span class="muted">–</span>'}</td>
     <td style="min-width:180px"><div style="display:flex;align-items:center;gap:8px"><div class="meter" style="flex:1;margin:0;--c:${c}"><i style="width:${pc}%"></i></div><span style="font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${pc.toFixed(0)}%</span></div></td></tr>`;
 }
+/* ---------- RM & CM ratings (their own KPI sheets; rolled up from the same store data) ---------- */
+const MGR_W = { RM: { sales: .40, conv: .25, process: .15, salary: .10, team: .10 }, CM: { sales: .35, conv: .35, ops: .15, team: .10, shrink: .05 } };
+const MGR_KPI = { sales: 'Sales Target', conv: 'Selling Effectiveness (Conversion)', process: 'Process Improvement & Initiatives', salary: 'Salary to Sales Ratio', team: 'Team Development (Attrition)', ops: 'Retail Operational Scorecard', shrink: 'Shrinkage Control' };
+const MGR_SHORT = { sales: 'Sales', conv: 'Conv', process: 'Process', salary: 'Salary', team: 'Team', ops: 'Ops', shrink: 'Shrink' };
+const MGR_COL = { sales: 'var(--k-sales)', conv: 'var(--k-conv)', process: 'var(--k-upt)', salary: 'var(--k-abv)', team: 'var(--k-attr)', ops: 'var(--k-audit)', shrink: 'var(--k-shrink)' };
+const rateStoresPct = p => p == null ? null : p < 50 ? 1 : p < 65 ? 2 : p <= 80 ? 3 : 4;        // CM: % of stores (or store-months) achieved
+const rateAttrPct = p => p == null ? null : p > 40 ? 0 : p > 30 ? 1 : p > 25 ? 2 : p >= 20 ? 3 : 4;
+const SHRINK_EXEMPT = ['BLR - COMMERCIAL STREET'];   // "Except commercial street store" on the KPI sheets
+const mgrStores = () => Object.entries(D.stores).filter(([, s]) => s.code).map(([k, s]) => ({ k, s, rm: tc(s.rmA || s.rm), cm: tc(s.cmA || s.cm) }));
+function mgrRoll(g, months) {
+  const cells = g.flatMap(x => months.map(m => ({ ...(x.s.m[m] || {}), m })));
+  const sm = cells.filter(c => c.target > 0), cv = cells.filter(c => c.wiT > 0 && c.cvT > 0 && c.wi > 0);
+  const sales = sum(sm, c => c.netI), target = sum(sm, c => c.target), wi = sum(cv, c => c.wi), bills = sum(cv, c => c.cBills), tB = sum(cv, c => c.wiT * c.cvT), tW = sum(cv, c => c.wiT);
+  const conv = wi ? bills / wi * 100 : null, convT = tW ? tB / tW * 100 : null;
+  return { sales, target, ach: target ? sales / target * 100 : null, wi, bills, conv, convT, convAch: conv != null && convT ? conv / convT * 100 : null };
+}
+function mgrAttr(g) {
+  const a = g.map(x => x.s.inp || {}).filter(i => i.left != null);
+  const open = sum(a, i => i.open), join = sum(a, i => i.joiners), exits = sum(a, i => i.left), close = sum(a, i => i.close), base = (open + close) / 2;
+  return { open, join, exits, close, pct: a.length && base ? exits / base * 100 : null };   // exits ÷ average headcount, as in the attrition report
+}
+const opsMonths = () => D.months.filter(m => Object.values(D.stores).some(s => ((s.inp || {}).scores || []).some(z => z.m === m)));
+const opsCount = (g, m) => { const v = g.map(x => (((x.s.inp || {}).scores || []).find(z => z.m === m) || {}).v).filter(z => z != null); return { ok: v.filter(z => z >= 90).length, n: v.length }; };
+const storeShare = (g, k) => { const r = g.map(x => k === 'shrink' && SHRINK_EXEMPT.includes(x.k) ? null : storeH1(x.k).rt[k]).filter(v => v != null); return r.length ? { ok: r.filter(v => v >= 3).length, n: r.length, pct: r.filter(v => v >= 3).length / r.length * 100 } : null; };
+function mgrList() {
+  const st = mgrStores(), out = [];
+  for (const rm of [...new Set(st.map(x => x.rm))].filter(Boolean).sort()) {
+    const g = st.filter(x => x.rm === rm);
+    out.push({ id: 'RM:' + rm, level: 'RM', name: rm, rm, g });
+    for (const cm of [...new Set(g.map(x => x.cm))].filter(Boolean).sort()) out.push({ id: 'CM:' + cm + '|' + rm, level: 'CM', name: cm, rm, g: g.filter(x => x.cm === cm) });
+  }
+  return out.map(mgrRate);
+}
+function mgrRate(l) {
+  const H = mgrRoll(l.g, D.months), A = mgrAttr(l.g), w = MGR_W[l.level], rows = [];
+  const add = (k, basis, ach, r) => { const o = OVR[ovrKey(l.id, l.level, k)] || null; rows.push({ k, w: w[k], basis, ach, sys: r, r: o ? o.rating : r, ovr: o }); };
+  add('sales', `${fmtL(H.sales)} of ${fmtL(H.target)} (excl. e-com)`, fmtP(H.ach), rateAch(H.ach));
+  const team = () => add('team', A.pct == null ? 'No attrition data' : `${A.exits} exits, opening ${A.open}, closing ${A.close} (promotion % not available)`, A.pct == null ? '–' : fmtP(A.pct), rateAttrPct(A.pct));
+  if (l.level === 'RM') {
+    add('conv', `${fmtP(H.conv)} vs target ${fmtP(H.convT)}`, fmtP(H.convAch), rateAch(H.convAch));
+    add('process', 'Manager assessment: at least 2 impactful initiatives a year. Enter the rating with ✎.', 'Manual', null);
+    add('salary', 'Target 10%. Salary data is not in the dashboard; enter the rating with ✎.', 'Manual', null);
+    team();
+  } else {
+    const c = storeShare(l.g, 'conv'), s = storeShare(l.g, 'shrink'), om = opsMonths(), oc = om.map(m => opsCount(l.g, m)), ook = sum(oc, x => x.ok), on = sum(oc, x => x.n);
+    add('conv', c ? `${c.ok} of ${c.n} stores at rating 3+ on conversion` : 'No data', c ? fmtP(c.pct, 0) + ' of stores' : '–', rateStoresPct(c && c.pct));
+    add('ops', on ? om.map((m, i) => `${mL(m)} ${oc[i].ok}/${oc[i].n}`).join(', ') + ` = ${ook} of ${on} store-months at 90%+` : 'No data', on ? fmtP(ook / on * 100, 0) + ' achieved' : '–', rateStoresPct(on ? ook / on * 100 : null));
+    team();
+    add('shrink', s ? `${s.ok} of ${s.n} stores at rating 3+ on shrinkage${l.g.some(x => SHRINK_EXEMPT.includes(x.k)) ? ' (Commercial Street excluded)' : ''}` : 'No data', s ? fmtP(s.pct, 0) + ' of stores' : '–', rateStoresPct(s && s.pct));
+  }
+  const sc = rs => { const have = rs.filter(x => x != null); return have; };
+  const calc = f => { const have = rows.filter(x => f(x) != null), sw = sum(have, x => x.w), pts = sum(have, x => x.w * f(x)); return { full: have.length === rows.length, score: sw ? (have.length === rows.length ? pts : pts / sw) : null }; };
+  const now = calc(x => x.r), sys = calc(x => x.sys);
+  return { ...l, H, A, rows, score: now.score, full: now.full, final: finalOf(now.score), sysScore: sys.score, changed: rows.some(x => x.ovr), pending: rows.filter(x => x.r == null).map(x => MGR_SHORT[x.k]) };
+}
+const mgrChip = m => m.final == null ? chip(null) : `<span class="chip r${m.final}${m.full ? '' : ' prov'}${m.changed ? ' ovr' : ''}">${m.final}${m.full ? '' : '*'}${m.changed ? ' ✎' : ''}</span>`;
+function renderMgr() {
+  const rm = $('#fRm').value, cm = $('#fCm').value, q = $('#fq').value.trim().toLowerCase();
+  const all = mgrList().filter(m => (!rm || m.rm === rm) && (!cm || m.level === 'RM' || m.name === cm) && (!q || (m.name + ' ' + m.rm).toLowerCase().includes(q)));
+  const rms = all.filter(m => m.level === 'RM'), cms = all.filter(m => m.level === 'CM');
+  const cell = (m, k) => { const x = m.rows.find(z => z.k === k); return x ? `<td class="num bl"><span class="cellsub" style="display:block">${esc(x.ach)}</span>${x.ovr ? `<span class="chip r${x.r} ovr" title="Changed by ${esc(x.ovr.by)}: ${esc(x.ovr.reason)}">${x.r}✎</span>` : chip(x.r)}</td>` : '<td class="num bl muted">–</td>'; };
+  const ks = ['sales', 'conv', 'ops', 'process', 'salary', 'team', 'shrink'];
+  $('#view').innerHTML = `<div class="tiles">
+    ${tile('var(--hero-b)', 'users', 'Regional Managers', rms.length, `${rms.filter(m => m.full).length} final · ${rms.filter(m => !m.full).length} provisional`)}
+    ${tile('var(--k-conv)', 'users', 'Cluster Managers', cms.length, `${cms.filter(m => m.full).length} final · ${cms.filter(m => !m.full).length} provisional`)}
+    ${tile('var(--k-upt)', 'star', 'Average CM score', fmtN(avg(cms.map(m => m.score).filter(v => v != null)), 2), 'weighted, on a 1–4 scale')}
+    ${tile('var(--k-attr)', 'calc', 'Manually rated / changed', all.filter(m => m.changed).length, 'RMs and CMs with a KPI entered or changed')}
+  </div>
+  <p class="note">Rated on the RM and CM KPI sheets. <b>RM:</b> Sales 40%, Conversion 25%, Process Improvement 15%, Salary to Sales 10%, Team Development 10%. <b>CM:</b> Sales 35%, Conversion 35%, Ops Scorecard 15%, Team Development 10%, Shrinkage 5%. A * means provisional: a KPI still needs a manual rating. Click a row for the workings and to enter or change a KPI rating.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Manager</th><th class="num">Stores</th>${ks.map(k => `<th class="num bl"><span class="kdot" style="background:${MGR_COL[k]}"></span>${MGR_SHORT[k]}</th>`).join('')}<th class="num bl">Score</th><th class="num">Rating</th></tr></thead><tbody>
+  ${all.map(m => `<tr data-mgr="${esc(m.id)}" style="${m.level === 'RM' ? 'background:var(--surface-2)' : ''}"><td><div class="who"><div class="av" style="--avc:${m.level === 'RM' ? 'var(--hero-b)' : 'var(--k-conv)'}">${esc(initials(m.name))}</div><div><div class="nm">${esc(m.name)}</div><div class="meta">${m.level === 'RM' ? 'Regional Manager' : 'Cluster Manager · RM ' + esc(m.rm)}</div></div></div></td>
+    <td class="num">${m.g.length}</td>${ks.map(k => cell(m, k)).join('')}<td class="num bl"><b>${m.score == null ? '–' : fmtN(m.score, 2) + (m.full ? '' : '*')}</b></td><td class="num">${mgrChip(m)}</td></tr>`).join('') || '<tr><td colspan="11" class="muted">No one matches these filters.</td></tr>'}
+  </tbody></table></div>`;
+  $('#view tbody').onclick = e => { const tr = e.target.closest('tr[data-mgr]'); if (tr) openMgr(tr.dataset.mgr); };
+}
+function openMgr(id) {
+  const m = mgrList().find(x => x.id === id); if (!m) return;
+  const om = opsMonths(), hist = CHANGES.filter(c => c.id === m.id && c.role === m.level).sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  const when = t => t ? new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  const months = [...D.months.map(x => ({ lab: mL(x), r: mgrRoll(m.g, [x]) })), { lab: 'H1', r: m.H }];
+  drawer(`<div class="av" style="--avc:${m.level === 'RM' ? 'var(--hero-b)' : 'var(--k-conv)'};width:46px;height:46px;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.35)">${esc(initials(m.name))}</div><div><h3>${esc(m.name)}</h3><div class="sub">${m.level === 'RM' ? 'Regional Manager' : 'Cluster Manager · RM ' + esc(m.rm)} · ${m.g.length} stores</div></div><div style="margin-left:8px">${m.final == null ? '' : `<span class="chip lg r${m.final}${m.full ? '' : ' prov'}">${m.final}${m.full ? '' : '*'}</span>`}</div>`,
+  `<div class="card" style="border-top:4px solid var(--k-attr)"><h2>KPI scorecard</h2><p class="hint">${m.full ? 'Final' : 'Provisional'} score <b>${m.score == null ? '–' : fmtN(m.score, 2)}</b>${m.changed ? ` · system score ${fmtN(m.sysScore, 2)}` : ''}${m.pending.length ? ` · waiting for a manual rating: ${m.pending.join(', ')}` : ''}. Click ✎ to enter or change a KPI rating (reason and your name required).</p>
+  ${SYNC === 'ok' ? '' : '<p class="syncnote">⚠ The change store is not reachable; ratings cannot be saved right now. Reload to retry.</p>'}
+  <div class="tbl-wrap"><table><thead><tr><th>KPI</th><th class="num">Weight</th><th>Basis</th><th class="num">Achievement</th><th class="num">Rating</th><th class="num">Weighted</th><th></th></tr></thead><tbody>
+  ${m.rows.map(x => `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${MGR_COL[x.k]};margin-right:6px"></span>${MGR_KPI[x.k]}</td><td class="num">${Math.round(x.w * 100)}%</td><td style="white-space:normal">${esc(x.basis)}${x.ovr ? `<div class="hist" style="margin-top:6px">✎ ${x.sys == null ? 'Entered' : 'Changed ' + x.sys + ' →'} <b>${x.r}</b> by <b>${esc(x.ovr.by)}</b>: ${esc(x.ovr.reason)}</div>` : ''}</td><td class="num">${esc(x.ach)}</td><td class="num">${x.ovr ? `<span class="chip r${x.r} ovr">${x.r}✎</span>` : chip(x.r)}</td><td class="num">${x.r == null ? '–' : fmtN(x.w * x.r, 2)}</td><td><button class="btn2${x.r == null ? ' primary' : ''}" style="padding:4px 10px" data-mgrcal="${esc(m.id)}~${x.k}" ${SYNC === 'ok' ? '' : 'disabled'}>✎</button></td></tr>`).join('')}
+  <tr style="background:var(--surface-2)"><td colspan="4"><b>${m.full ? 'Final weighted score' : 'Provisional score (weighted points ÷ weights with a rating)'}</b></td><td class="num">${mgrChip(m)}</td><td class="num"><b>${m.score == null ? '–' : fmtN(m.score, 2)}</b></td><td></td></tr></tbody></table></div>
+  ${hist.length ? `<div style="margin-top:10px"><b style="font-size:12.5px">History</b>${hist.map(c => `<div class="hist">${when(c.ts)} · <b>${esc(c.by)}</b> · ${esc(MGR_KPI[c.kpi] || c.kpi)}: ${c.rating == null ? 'reverted' : `${c.prev === '' || c.prev == null ? '–' : c.prev} → <b>${c.rating}</b>`}<br>${esc(c.reason)}</div>`).join('')}</div>` : ''}</div>
+  <div class="card"><h2>Sales and conversion by month</h2><div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Month</th><th class="num">Target</th><th class="num">Achieved</th><th class="num">Ach.</th><th class="num bl">Walk-ins</th><th class="num">Bills</th><th class="num">Conv.</th><th class="num">Target</th><th class="num">Ach.</th></tr></thead><tbody>
+  ${months.map(x => `<tr${x.lab === 'H1' ? ' style="background:var(--surface-2);font-weight:700"' : ''}><td>${x.lab}</td><td class="num">${fmtL(x.r.target)}</td><td class="num">${fmtL(x.r.sales)}</td><td class="num">${fmtP(x.r.ach)}</td><td class="num bl">${fmtN(x.r.wi)}</td><td class="num">${fmtN(x.r.bills)}</td><td class="num">${fmtP(x.r.conv)}</td><td class="num">${fmtP(x.r.convT)}</td><td class="num">${fmtP(x.r.convAch, 0)}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><h2>Stores (${m.g.length})</h2><p class="hint">Ops scorecard: ✓ = 90% or above that month. Attrition: ${m.A.pct == null ? 'no data' : `${m.A.exits} exits, ${fmtP(m.A.pct)} of average headcount`}.</p><div class="tbl-wrap"><table><thead><tr><th>Store</th>${m.level === 'RM' ? '<th>Cluster</th>' : ''}<th class="num">Sales ach.</th><th class="num">Conv.</th>${om.map(x => `<th class="num">${mL(x)}</th>`).join('')}<th class="num">Shrink</th><th class="num">Exits</th></tr></thead><tbody>
+  ${m.g.slice().sort((a, b) => (a.cm + a.k).localeCompare(b.cm + b.k)).map(x => { const s = storeH1(x.k); return `<tr data-k="${esc(x.k)}"><td>${esc(tc(x.k))}</td>${m.level === 'RM' ? `<td>${esc(x.cm)}</td>` : ''}<td class="num">${fmtP(s.salesPct, 0)} ${chip(s.rt.sales)}</td><td class="num">${fmtP(s.convPct, 0)} ${chip(s.rt.conv)}</td>${om.map(mm => { const v = (((x.s.inp || {}).scores || []).find(z => z.m === mm) || {}).v; return `<td class="num" style="${v >= 90 ? 'color:var(--good);font-weight:700' : ''}">${v == null ? '–' : fmtP(v, 0) + (v >= 90 ? ' ✓' : '')}</td>`; }).join('')}<td class="num">${SHRINK_EXEMPT.includes(x.k) ? '<span class="muted">exempt</span>' : chip(s.rt.shrink)}</td><td class="num">${s.left ?? '–'}</td></tr>`; }).join('')}</tbody></table></div></div>`);
+  document.querySelectorAll('.drawer tr[data-k]').forEach(tr => tr.onclick = () => openStore(tr.dataset.k));
+}
+function openMgrCal(id, k) {
+  const m = mgrList().find(x => x.id === id), x = m && m.rows.find(z => z.k === k); if (!x) return;
+  let me = ''; try { me = localStorage.getItem('h1name') || ''; } catch {}
+  const opts = k === 'team' ? [4, 3, 2, 1, 0] : [4, 3, 2, 1];
+  const host = document.createElement('div');
+  host.className = 'modal';
+  host.innerHTML = `<div class="box" role="dialog" aria-modal="true"><h3>${x.sys == null && !x.ovr ? 'Enter' : 'Change'} a KPI rating</h3><div class="muted" style="font-size:13px">${esc(m.name)} · ${m.level === 'RM' ? 'Regional Manager' : 'Cluster Manager'}</div>
+    <div class="fld">KPI<div><b>${MGR_KPI[k]}</b> (${Math.round(x.w * 100)}%) · system rating ${x.sys == null ? '<span class="muted">none (manual KPI)</span>' : chip(x.sys)}</div></div>
+    <label class="fld">Rating<select id="mNew">${opts.map(r => `<option value="${r}" ${x.r === r ? 'selected' : ''}>${r}</option>`).join('')}${x.ovr ? `<option value="">${x.sys == null ? 'Remove the rating' : 'Undo change (back to system rating)'}</option>` : ''}</select></label>
+    <label class="fld">Reason / basis (required)<textarea id="mWhy" placeholder="e.g. 3 initiatives delivered: clienteling drive, loss-of-sale tracker, weekend staffing plan"></textarea></label>
+    <label class="fld">Your name (required)<input id="mBy" value="${esc(me)}" placeholder="Name and role"></label>
+    <div class="err" id="mErr"></div>
+    <div class="btnrow"><button class="btn2" id="mCancel">Cancel</button><button class="btn2 primary" id="mSave">Save</button></div></div>`;
+  document.body.appendChild(host);
+  const close = () => host.remove();
+  host.querySelector('#mCancel').onclick = close;
+  host.onclick = e => { if (e.target === host) close(); };
+  host.querySelector('#mSave').onclick = async () => {
+    const v = host.querySelector('#mNew').value, why = host.querySelector('#mWhy').value.trim(), by = host.querySelector('#mBy').value.trim(), err = host.querySelector('#mErr');
+    if (!why || !by) { err.textContent = 'Please give the reason and your name.'; return; }
+    if (v !== '' && x.ovr && Number(v) === x.r) { err.textContent = 'That is already the current rating.'; return; }
+    try { localStorage.setItem('h1name', by); } catch {}
+    const btn = host.querySelector('#mSave'); btn.disabled = true; btn.textContent = 'Saving…'; err.textContent = '';
+    try {
+      await saveChange({ empId: m.id, role: m.level, kpi: k, name: m.name, outlet: m.level === 'RM' ? 'Region' : 'Cluster · RM ' + m.rm, systemRating: x.sys ?? '', prevRating: x.r ?? '', newRating: v === '' ? '' : Number(v), reason: why, by });
+      await loadChanges(); compute(); render(); close(); openMgr(m.id);
+    } catch (e) { err.textContent = 'Could not save: ' + e.message; btn.disabled = false; btn.textContent = 'Save'; }
+  };
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-mgrcal]'); if (b && !b.disabled) { const [id, k] = b.dataset.mgrcal.split('~'); openMgrCal(id, k); } });
+
 /* ---------- individual sales (view only; SA/SSA are rated on ABV & UPT, not on their own sales) ---------- */
 function renderSales(base) {
   const people = base.filter(p => p.role === 'SSA' && p.storeSales && Object.keys(p.storeSales).length);
@@ -1134,6 +1260,17 @@ function renderRules() {
     <div class="steps">${finalEx(sm)}${finalEx(asm)}${finalEx(ssa)}</div>
     <div style="margin-top:14px"><b>Rounding</b>${scale([{ r: 1, to: 1.5 }, { r: 2, to: 2.5 }, { r: 3, to: 3.5 }, { r: 4, to: 4 }], [1, 4], null, t => t.toFixed(1))}</div></div>`;
 
+  const mgrRules = `<div class="card kpi-sec" style="--kc:var(--hero-b)"><h2><span class="ico" style="--c:var(--hero-b)">${ICON.users}</span>9 · RM and Cluster Manager ratings</h2>
+    <p class="hint">Shown on the RM &amp; CM tab, from their own KPI sheets and the same store data.</p>
+    <div class="srow" style="grid-template-columns:minmax(110px,170px) 1fr"><div class="lab"><b>Regional Manager</b></div><div class="wbar">${Object.entries(MGR_W.RM).map(([k, v]) => `<div style="flex:${v};background:${MGR_COL[k]}">${MGR_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div></div>
+    <div class="srow" style="grid-template-columns:minmax(110px,170px) 1fr"><div class="lab"><b>Cluster Manager</b></div><div class="wbar">${Object.entries(MGR_W.CM).map(([k, v]) => `<div style="flex:${v};background:${MGR_COL[k]}">${MGR_SHORT[k]} ${Math.round(v * 100)}%</div>`).join('')}</div></div>
+    <ul class="clean">
+      <li><b>Sales</b> (RM and CM) and <b>RM conversion</b>: achievement % of the whole region or cluster: 70 or below = 1, 70.1–90 = 2, 90.1–100 = 3, above 100 = 4.</li>
+      <li><b>CM conversion and shrinkage</b>: the share of the cluster's stores at rating 3 or better on that KPI: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Commercial Street is left out of shrinkage.</li>
+      <li><b>CM ops scorecard</b>: counted month by month, not averaged. Each month: stores at 90% or above out of the stores scored; the rating uses total achieved ÷ total store-months, on the same bands.</li>
+      <li><b>Team development</b>: attrition % (exits ÷ average headcount): above 40 = 0, 30–40 = 1, 25–30 = 2, 20–25 = 3, below 20 = 4. Promotion % is not available.</li>
+      <li><b>RM Process Improvement and Salary to Sales</b>: no data in the dashboard; a rating is entered by hand with ✎ and a reason. Until then the RM rating is provisional (*).</li>
+    </ul></div>`;
   const sources = `<div class="card"><h2>Data sources</h2><ul class="clean">
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
     <li>Targets.xlsx: monthly sales, walk-in and conversion targets</li>
@@ -1142,7 +1279,7 @@ function renderRules() {
     <li>Eligibility List, Pan India 26-27: roster and eligibility (eligible = joined on or before 31 Jul 2026, part-timers included). Cluster Managers, Regional Managers and Office Assistants are not rated here.</li><li>Store name mapping: AECS Layout = BLR – Brookefield; Infantry Road is a new store and not rated.</li></ul></div>`;
 
   $('#view').innerHTML = `<div class="picker"><b>Worked examples for store:</b><select id="exStore">${keys.map(k => `<option value="${esc(k.key)}"${k.key === s.key ? ' selected' : ''}>${esc(tc(k.name))}</option>`).join('')}</select><span class="muted">Every number below is calculated live from this store's real data.</span></div>
-    ${weights}${sales}${conv}${abvupt}${audit}${shrink}${attr}${final}${sources}`;
+    ${weights}${sales}${conv}${abvupt}${audit}${shrink}${attr}${final}${mgrRules}${sources}`;
   $('#exStore').onchange = e => { UI.exStore = e.target.value; renderRules(); };
 }
 function bandText(v) { const r = rateAch(v); return { 1: '70% or below', 2: 'falls in 70.1–90%', 3: 'falls in 90.1–100%', 4: 'above 100%' }[r] || ''; }

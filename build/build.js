@@ -127,6 +127,18 @@ if (fs.existsSync(SRC.inputs)) {
   }
 }
 
+// 3e. one spelling per manager: stores missing from the attrition report only have the short names of the target sheet
+// ("Karthick", "Ravindar", "Jayesh"); match those to the full names used everywhere else ("M Karthick", "H Ravindar babu", "Jayesh Kashyap")
+{
+  const full = f => [...new Set(Object.values(stores).map(s => s[f]).filter(Boolean))];
+  const fullCM = full('cmA'), fullRM = full('rmA');
+  const match = (short, list) => { const w = String(short || '').trim().toLowerCase(); if (!w) return null; const hit = list.filter(n => n.toLowerCase() === w || n.toLowerCase().split(/\s+/).includes(w)); return hit.length === 1 ? hit[0] : null; };
+  for (const s of Object.values(stores)) {
+    if (!s.cmA && s.cm) { const m = match(s.cm, fullCM); if (m) s.cmA = m; }
+    if (!s.rmA && s.rm) { const m = match(s.rm, fullRM); if (m) s.rmA = m; }
+  }
+}
+
 // 4. roster: pan-India eligibility list (HR). Eligible = its "Eligible for review" column (= joined on/before 31 Jul 2026)
 const ROLE = d => /^store manager$/i.test(d) ? 'SM' : /^assistant store manager$/i.test(d) ? 'ASM' : /style associate/i.test(d) ? 'SSA' : null;
 const people = [], skipped = {};

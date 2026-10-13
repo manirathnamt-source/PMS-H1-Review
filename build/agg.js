@@ -3,9 +3,12 @@
 const fs = require('fs'), { spawn, execFileSync } = require('child_process');
 const [file, month, out] = process.argv.slice(2);
 const C = { outlet: 0, bill: 2, date: 3, item: 6, qty: 12, net: 39, sm: 40, btype: 56, wot: 112 };
-const isEcom = s => !s || /^(e-?com|ecommerce|online)/i.test(s) || !/^\d+$/.test(s);
+// e-commerce = the salesman field carries an e-com label (E-COMMERCE, E- COMMERCE, ECOMMERCE, Ecom, E-COMM, E-COMMERC E).
+// Anything else is a store sale: an Emp ID (credited to that person) or a typed name / STOREMANAGER / blank (store sale, no individual).
+const isEcom = s => /^e[\s-]*comm?/i.test(s) || /^online/i.test(s);
+const isEmp = s => /^T?\d+$/.test(s);
 
-const stores = {}, emps = {}; let lines = 0, hdr = false;
+const stores = {}, emps = {}, named = {}; let lines = 0, hdr = false;   // named: store sales billed under a typed name, not an Emp ID
 function add(o, net, wot, qty, bk) { o.net += net; o.wot += wot; o.qty += qty; (o._b[bk] = (o._b[bk] || 0) + net); }
 const blank = () => ({ net: 0, wot: 0, qty: 0, _b: {} });
 function row(r) {
@@ -18,8 +21,8 @@ function row(r) {
   add(s.all, net, wot, qty, bk);
   if (!isEcom(sm)) {
     add(s.inst, net, wot, qty, bk);
-    const e = (emps[sm] || (emps[sm] = {}));
-    add(e[outlet] || (e[outlet] = blank()), net, wot, qty, bk);
+    if (isEmp(sm)) { const e = (emps[sm] || (emps[sm] = {})); add(e[outlet] || (e[outlet] = blank()), net, wot, qty, bk); }
+    else { const nk = outlet + '|' + (sm || '(blank)'); named[nk] = (named[nk] || 0) + net; }
   }
 }
 function fin(o) { // bills = distinct bills with positive value for that scope
@@ -29,7 +32,8 @@ function fin(o) { // bills = distinct bills with positive value for that scope
 function done() {
   for (const s of Object.values(stores)) { fin(s.all); fin(s.inst); }
   for (const e of Object.values(emps)) for (const o of Object.values(e)) fin(o);
-  fs.writeFileSync(out, JSON.stringify({ month, lines, stores, emps }));
+  for (const k in named) named[k] = Math.round(named[k]);
+  fs.writeFileSync(out, JSON.stringify({ month, lines, stores, emps, named }));
   console.log(month, 'lines', lines, 'stores', Object.keys(stores).length, 'emps', Object.keys(emps).length);
 }
 
