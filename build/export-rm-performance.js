@@ -61,9 +61,15 @@ const rateAttr = p => p == null ? null : p > 40 ? 0 : p > 30 ? 1 : p > 25 ? 2 : 
 const finalOf = s => s == null ? null : Math.min(4, Math.max(1, Math.round(+s.toFixed(4))));
 const SHRINK_EXEMPT = ['BLR - COMMERCIAL STREET'];   // "Except commercial street store" on the KPI sheets
 // one store's H1 KPI ratings (the same rules the dashboard applies to stores)
+// shrinkage is rated quarter by quarter (that quarter's net loss ÷ store sale), then the quarter ratings are averaged
+const shrinkQ = x => {
+  const g = {}; for (const a of (x.s.inp || {}).audits || []) (g[a.q || 'Audit'] = g[a.q || 'Audit'] || []).push(a);
+  const r = Object.values(g).map(a => { const sale = sum(a, z => z.sale), val = sum(a, z => z.value); return rateShrink(sale ? Math.max(0, -val) / sale * 100 : null); }).filter(v => v != null);
+  return r.length ? +(r.reduce((p, v) => p + v, 0) / r.length).toFixed(2) : rateShrink((x.s.inp || {}).shrink ?? null);
+};
 const storeRt = x => {
-  const h = roll([x], M), sh = shrink([x]);
-  return { conv: rateAch(h.convAch == null ? null : h.convAch * 100), ops: rateAudit(h.ops == null ? null : h.ops * 100), shrink: SHRINK_EXEMPT.includes(x.k) ? null : rateShrink(sh) };
+  const h = roll([x], M);
+  return { conv: rateAch(h.convAch == null ? null : h.convAch * 100), ops: rateAudit(h.ops == null ? null : h.ops * 100), shrink: SHRINK_EXEMPT.includes(x.k) ? null : shrinkQ(x) };
 };
 // share of a group's stores that reach rating 3+ on a KPI (stores without data for it are left out)
 const share = (g, k) => { const r = g.map(x => storeRt(x)[k]).filter(v => v != null); return r.length ? { ok: r.filter(v => v >= 3).length, n: r.length, pct: r.filter(v => v >= 3).length / r.length * 100 } : null; };
@@ -108,7 +114,7 @@ function rating(l) {
   aoa.push(['How these are rated (Retail Goal FY 2025-26 KPI sheets)'],
     ['Sales and (RM) conversion: achievement % 70 or below = 1, 70.1–90 = 2, 90.1–100 = 3, above 100 = 4.'],
     ['CM conversion, ops scorecard, shrinkage: % of the cluster’s stores at rating 3 or better: below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4.'],
-    ['A store reaches rating 3 on: conversion above 90% of target; shrinkage 0.075% or less. Commercial Street is left out of shrinkage.'],
+    ['A store reaches rating 3 on: conversion above 90% of target; shrinkage rated each quarter (0.075% or less = 3) and the quarter ratings averaged to 3 or more. Commercial Street is left out of shrinkage.'],
     ['Ops scorecard is counted month by month, not averaged: each month, stores scoring 90% or above (Green zone) out of the stores scored; the rating uses total achieved ÷ total store-months (Apr–Aug).'],
     ['Team development: attrition % above 40 = 0, 30–40 = 1, 25–30 = 2, 20–25 = 3, below 20 = 4. Promotion % is not available, so attrition alone is used.'],
     ['RM Process Improvement (15%) and Salary to Sales Ratio (10%) need manual input; until then the RM score is provisional: weighted points ÷ weights with data.'],
