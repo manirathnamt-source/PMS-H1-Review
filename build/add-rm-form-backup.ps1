@@ -13,7 +13,7 @@ try {
     $after = $form.Worksheets.Item("RM KPI")
     foreach ($s in $backup) {
       $target = "Backup - $s"
-      if ($have -contains $target) { $after = $form.Worksheets.Item($target); continue }
+      if ($have -contains $target) { $form.Worksheets.Item($target).Delete() }   # refresh: replace an older copy
       $perf.Worksheets.Item($s).Copy([Type]::Missing, $after)
       $after = $form.Worksheets.Item($after.Index + 1)
       $after.Name = $target
