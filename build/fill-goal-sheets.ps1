@@ -1,14 +1,16 @@
 # Step 2 of the goal sheets: copies the HR "Retail Goal" form for each person in build/out/goal-sheets.json,
 # fills the KPI rows and adds the formatted back-up sheets behind the KPI sheet. Run export-goal-sheets.js first.
-param([string]$TemplateDir)
+param([string]$TemplateDir, [string]$Only = "")
 $forms = Get-Content "C:\dev\PMS-H1-Review\build\out\goal-sheets.json" -Raw -Encoding UTF8 | ConvertFrom-Json
-$excel = New-Object -ComObject Excel.Application
-$excel.Visible = $false
-$excel.DisplayAlerts = $false
 $headFill = 14998742   # light blue
 $totalFill = 15921906  # light grey
-try {
-  foreach ($f in $forms) {
+# each form gets its own Excel instance and up to 3 tries: Excel automation occasionally drops a call mid-run
+function Fill-Form($f) {
+  $excel = New-Object -ComObject Excel.Application
+  $excel.Visible = $false
+  $excel.DisplayAlerts = $false
+  try {
+    $ErrorActionPreference = "Stop"
     Copy-Item (Join-Path $TemplateDir $f.template) $f.file -Force
     $book = $excel.Workbooks.Open($f.file)
     $kpi = $book.Worksheets.Item($f.kpiSheet)
@@ -91,8 +93,16 @@ try {
     Write-Output ("{0} - {1}: total {2} | {3}" -f $f.role, $f.name, $kpi.Range("K15").Text, (@($book.Worksheets | ForEach-Object { $_.Name }) -join ", "))
     foreach ($n in 10..14) { Write-Output ("     {0} | {1} | self {2} | mgr {3} | {4}" -f $kpi.Range("B$n").Text, $kpi.Range("H$n").Text, $kpi.Range("I$n").Text, $kpi.Range("J$n").Text, $kpi.Range("K$n").Text) }
     $book.Close($true)
+  } finally {
+    $excel.Quit()
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel)
+    [GC]::Collect()
   }
-} finally {
-  $excel.Quit()
-  [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel)
+}
+foreach ($f in $forms) {
+  if ($Only -and $f.name -notlike "*$Only*") { continue }
+  for ($try = 1; $try -le 3; $try++) {
+    try { Fill-Form $f; break }
+    catch { Write-Warning ("{0} - {1}: try {2} failed: {3}" -f $f.role, $f.name, $try, $_.Exception.Message); Start-Sleep -Seconds 3 }
+  }
 }
