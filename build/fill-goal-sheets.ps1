@@ -17,7 +17,7 @@ try {
     $kpi.Range("C4").Value2 = "Retail Stores"
     $kpi.Range("C5").Value2 = $f.role
     $kpi.Range("C6").Value2 = $f.manager
-    $kpi.Range("C7").Value2 = "Mid Year Review: H1 FY 2026-27 (April to September 2026)"
+    $kpi.Range("C7").Value2 = $f.period
     if ([string]::IsNullOrEmpty($kpi.Range("H9").Text)) { $kpi.Range("H9").Value2 = "Achievement %" }
     foreach ($r in $f.rows) {
       $n = $r.row
@@ -29,6 +29,7 @@ try {
         $kpi.Range("I$n").Value2 = [int]$r.r   # Self-Rating
         $kpi.Range("J$n").Value2 = [int]$r.r   # Manager's Rating (the weighted score formula reads this column)
       }
+      if ($null -ne $r.m) { $kpi.Range("J$n").Value2 = [int]$r.m }   # changed on the dashboard by the manager
     }
     $kpi.Columns.Item(6).ColumnWidth = 46
     $kpi.Columns.Item(8).ColumnWidth = 16
