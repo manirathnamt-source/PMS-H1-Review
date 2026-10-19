@@ -111,6 +111,20 @@ if (fs.existsSync(SRC.inputs)) {
   }
 }
 
+// 3c2. salary to sales ratio per store and month (HR sheet; store code -> store via salary-store-map.json). RM KPI only.
+// Ratios under 1% mean no salary data for that month and are left out.
+SRC.salary = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/Salary Ratio.xlsx';
+if (fs.existsSync(SRC.salary)) {
+  const MAP = JSON.parse(fs.readFileSync(here('salary-store-map.json'), 'utf8'));
+  let n = 0;
+  for (const r of X.utils.sheet_to_json(X.readFile(SRC.salary).Sheets.Sheet1, { header: 1, raw: true, defval: '' }).slice(2)) {
+    const k = MAP[String(r[1]).split('-')[0].trim()], s = k && stores[k]; if (!s) continue;
+    const sal = {}; MONTHS.forEach((m, i) => { const v = r[2 + i]; if (typeof v === 'number' && v >= 0.01) sal[m] = v; });
+    (s.inp = s.inp || {}).sal = sal; n++;
+  }
+  console.log('salary ratio: stores', n);
+}
+
 // 3d. attrition: store-wise exits Apr–Sep (SM KPI uses the exit count) + exit list for the drill-down
 {
   const wb = X.readFile(SRC.attrition);

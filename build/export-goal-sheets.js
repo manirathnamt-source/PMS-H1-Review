@@ -47,6 +47,25 @@ function shrinkOf(x, qs = QS) {
   return { q, rt: r.length ? +(r.reduce((a, b) => a + b, 0) / r.length).toFixed(2) : null };
 }
 
+// salary to sales ratio per store and month (HR "Salary Ratio.xlsx", mapped to dashboard stores by build/salary-store-map.json).
+// A group's ratio = total salary ÷ total store sales, where salary = the store's ratio × its sales that month. Ratios under 1% mean no data.
+const SAL = (() => {
+  const MAP = JSON.parse(fs.readFileSync(path.join(__dirname, 'salary-store-map.json'))), out = {};
+  const f = 'C:/Users/Lenovo/OneDrive/Desktop/Category Q1/Salary Ratio.xlsx';
+  if (!fs.existsSync(f)) return out;
+  for (const r of X.utils.sheet_to_json(X.readFile(f).Sheets.Sheet1, { header: 1, raw: true, defval: '' }).slice(2)) {
+    const k = MAP[String(r[1]).split('-')[0].trim()]; if (k) out[k] = r.slice(2, 8).map(v => typeof v === 'number' && v >= 0.01 ? v : null);
+  }
+  return out;
+})();
+const SAL_TARGET = 0.10;
+function salary(g, months) {
+  let sal = 0, sale = 0;
+  for (const x of g) months.forEach(m => { const v = (SAL[x.k] || [])[M.indexOf(m)], s = (x.s.m[m] || {}).sales || 0; if (v != null && s > 0) { sal += v * s; sale += s; } });
+  const ratio = div(sal, sale);
+  return { sal, sale, ratio, ach: ratio ? SAL_TARGET / ratio : null };
+}
+
 // ---- back-up sheets: every builder returns { name, aoa, tables:[{head,last,totals}], pct:[cols], num:[cols], widths } ----
 const sheet = (name, title, note) => ({ name, aoa: [[title], [note], []], tables: [], fmt: [] });
 const table = (sh, head, rows, totalRows = []) => {
@@ -116,6 +135,22 @@ function opsSheet(l, no) {
   sh.pctRows = { cols: l.OPS.map((_, i) => 1 + i), upto: rows.length - 2 }; sh.pct = []; sh.num = [];
   return sh;
 }
+function salarySheet(l, no) {
+  const sh = sheet(`${no} Salary ratio`, `${no}. Salary to Sales Ratio: ${l.title}`, 'Store ratios from the HR Salary Ratio sheet. Region and cluster ratio = total salary ÷ total store sales, where each store-month salary = its ratio × its sales. Ratios under 1% are treated as no data.');
+  const line = (lab, cm, g) => { const t = salary(g, l.M); return [lab, cm, ...l.M.map(m => r4(salary(g, [m]).ratio)), t.sale || '', t.sal ? Math.round(t.sal) : '', r4(t.ratio)]; };
+  const rows = [], tot = [];
+  for (const { cm, g } of groupsOf(l)) {
+    sorted(g).forEach(x => rows.push(line(tc(x.k), cm, [x])));
+    if (l.level === 'RM') { tot.push(rows.length); rows.push(line('Cluster total: ' + cm, cm, g)); }
+  }
+  tot.push(rows.length); rows.push(line(l.level === 'RM' ? 'REGION TOTAL' : 'CLUSTER TOTAL', '', l.g));
+  table(sh, ['Store', 'Cluster Manager', ...l.M.map(m => ML(m) + ' ratio'), 'Store sales', 'Salary (ratio × sales)', 'Salary ratio'], rows, tot);
+  const t = salary(l.g, l.M);
+  sh.aoa.push([t.ratio ? `Rating: salary ratio ${P(t.ratio)} vs target 10% → achievement ${P(t.ach)} (10% ÷ ${P(t.ratio)}) → rating ${rateAch(t.ach * 100)}` : 'Rating: no salary data'],
+    ['Scale (same as sales): achievement 70% or below = 1, 70.1–90% = 2, 90.1–100% = 3, above 100% = 4. In ratio terms: above 14.3% = 1, 11.1–14.3% = 2, 10–11.1% = 3, under 10% = 4.']);
+  sh.pct = [...l.M.map((_, i) => 2 + i), 4 + l.M.length]; sh.num = [2 + l.M.length, 3 + l.M.length];
+  return sh;
+}
 function attrSheet(l, no) {
   const sh = sheet(`${no} Attrition`, `${no}. Team Development (Attrition): ${l.title}`, l.from ? `Attrition % = exits from ${ML(l.from)} (handover) ÷ average H1 headcount (opening + closing) ÷ 2. From the Retail Attrition report.` : 'Attrition % = exits in H1 ÷ average headcount (opening + closing) ÷ 2. From the Retail Attrition report.');
   const line = (lab, cm, g) => { const a = attr(g, l.from); return [lab, cm, a.open, a.join, a.exits, a.close, r4(a.pct)]; };
@@ -164,7 +199,7 @@ function rate(l) {
     10: sales,
     11: { remark: `Conversion ${P(h.conv)} vs target ${P(h.convT)}. UPT targets not available.`, ach: P(h.convAch), r: rateAch(h.convAch * 100) },
     12: { remark: 'To be filled: list the initiatives taken in H1', ach: '', r: null },
-    13: { remark: 'To be filled: salary to sales ratio for H1', ach: '', r: null },
+    13: (() => { const t = salary(l.g, l.M); return t.ratio ? { remark: `Salary ${P(t.ratio)} of store sales vs target 10%${l.from ? ', ' + l.lab : ''}. Achievement = 10% ÷ ratio.`, ach: P(t.ach), r: rateAch(t.ach * 100) } : { remark: 'No salary data', ach: '', r: null }; })(),
     14: team };
   else R.rows = {
     10: sales,
@@ -195,7 +230,7 @@ for (const rm of rms) {
       const row = l.R.rows[ROW[l.level][c.kpi]]; if (!row) continue;
       row.m = c.rating; if (row.r !== c.rating) row.remark += ` Manager's rating ${c.rating} (system ${row.r ?? '-'}) by ${c.by}: ${c.reason}`;
     }
-    const sheets = l.level === 'RM' ? [salesSheet(l, 1), convSheet(l, 2), attrSheet(l, 5)] : [salesSheet(l, 1), convSheetCM(l, 2), opsSheet(l, 3), attrSheet(l, 4), shrinkSheet(l, 5)];
+    const sheets = l.level === 'RM' ? [salesSheet(l, 1), convSheet(l, 2), salarySheet(l, 4), attrSheet(l, 5)] : [salesSheet(l, 1), convSheetCM(l, 2), opsSheet(l, 3), attrSheet(l, 4), shrinkSheet(l, 5)];
     const wb = X.utils.book_new();
     for (const sh of sheets) {
       const ws = X.utils.aoa_to_sheet(sh.aoa);

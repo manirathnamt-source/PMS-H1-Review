@@ -894,6 +894,9 @@ function mgrAttr(g, from) {
   const open = sum(a, i => i.open), join = sum(a, i => i.joiners), exits = from ? sum(a, i => (i.exits || []).filter(e => e.left >= from + '-01').length) : sum(a, i => i.left), close = sum(a, i => i.close), base = (open + close) / 2;
   return { open, join, exits, close, pct: a.length && base ? exits / base * 100 : null };   // exits ÷ average headcount, as in the attrition report
 }
+// salary to sales ratio (RM KPI): total salary ÷ total store sales, salary = store ratio × store sales that month. Target 10%;
+// achievement = 10% ÷ ratio, rated on the sales scale (above 100% = 4, 90.1–100% = 3, 70.1–90% = 2, 70% or below = 1).
+const mgrSalary = (g, months) => { let sal = 0, sale = 0; for (const x of g) months.forEach(m => { const v = ((x.s.inp || {}).sal || {})[m], s = (x.s.m[m] || {}).sales || 0; if (v != null && s > 0) { sal += v * s; sale += s; } }); const ratio = sale ? sal / sale * 100 : null; return { ratio, ach: ratio ? 10 / ratio * 100 : null }; };
 const opsMonths = () => D.months.filter(m => Object.values(D.stores).some(s => ((s.inp || {}).scores || []).some(z => z.m === m)));
 const opsCount = (g, m) => { const v = g.map(x => (((x.s.inp || {}).scores || []).find(z => z.m === m) || {}).v).filter(z => z != null); return { ok: v.filter(z => z >= 90).length, n: v.length }; };
 // conversion, month by month: a store achieves the month when its conversion is above 90% of that month's target (rating 3+)
@@ -919,7 +922,7 @@ function mgrRate(l) {
   if (l.level === 'RM') {
     add('conv', `${fmtP(H.conv)} vs target ${fmtP(H.convT)}`, fmtP(H.convAch), rateAch(H.convAch));
     add('process', 'Manager assessment: at least 2 impactful initiatives a year. Enter the rating with ✎.', 'Manual', null);
-    add('salary', 'Target 10%. Salary data is not in the dashboard; enter the rating with ✎.', 'Manual', null);
+    { const S = mgrSalary(l.g, MS); add('salary', S.ratio == null ? 'No salary data; enter the rating with ✎.' : `Salary ${fmtP(S.ratio)} of store sales vs target 10% → achievement 10 ÷ ${S.ratio.toFixed(1)} = ${fmtP(S.ach)}${since}`, S.ratio == null ? '–' : fmtP(S.ratio), rateAch(S.ach)); }
     team();
   } else {
     const cc = MS.map(m => convCount(l.g, m)), cok = sum(cc, x => x.ok), cn = sum(cc, x => x.n), s = shrinkCount(l.g, from ? [...new Set(MS.map(fyQ))] : null), om = opsMonths().filter(m => MS.includes(m)), oc = om.map(m => opsCount(l.g, m)), ook = sum(oc, x => x.ok), on = sum(oc, x => x.n);
@@ -1290,7 +1293,8 @@ function renderRules() {
       <li><b>CM shrinkage</b>: counted quarter by quarter in the same way. Each quarter, a store achieves when that quarter's shrinkage is 0.075% or less (rating 3 or better). Rating uses store-quarters achieved ÷ store-quarters audited, on the same scale. Commercial Street is left out.</li>
       <li><b>CM ops scorecard</b>: counted month by month, not averaged. Each month: stores at 90% or above out of the stores scored; the rating uses total achieved ÷ total store-months, on the same bands.</li>
       <li><b>Team development</b>: attrition % (exits ÷ average headcount): above 40 = 0, 30–40 = 1, 25–30 = 2, 20–25 = 3, below 20 = 4. Promotion % is not available.</li>
-      <li><b>RM Process Improvement and Salary to Sales</b>: no data in the dashboard; a rating is entered by hand with ✎ and a reason. Until then the RM rating is provisional (*).</li>
+      <li><b>RM Salary to Sales Ratio</b>: from the HR salary ratio sheet. Region ratio = total salary ÷ total store sales (each store-month salary = its ratio × its sales). Target 10%; achievement = 10% ÷ ratio, rated like sales: above 100% = 4, 90.1–100% = 3, 70.1–90% = 2, 70% or below = 1. Example: ratio 11.2% → 10 ÷ 11.2 = 89% → rating 2.</li>
+      <li><b>RM Process Improvement</b>: no data in the dashboard; a rating is entered by hand with ✎ and a reason. Until then the RM rating is provisional (*).</li>
     </ul></div>`;
   const sources = `<div class="card"><h2>Data sources</h2><ul class="clean">
     <li>Item-wise sales, Apr–Sep 2026 (6 monthly POS exports): store sales, ABV, UPT, individual billing</li>
