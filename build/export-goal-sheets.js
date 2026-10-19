@@ -29,20 +29,22 @@ const SHRINK_EXEMPT = ['BLR - COMMERCIAL STREET'];
 
 // sales and conversion for a group of stores over a set of months (e-commerce excluded; months without a target skipped)
 function roll(g, months) {
-  const cells = g.flatMap(x => months.map(m => x.s.m[m] || {}));
+  const cells = g.flatMap(x => months.filter(m => (!x.ms || x.ms.includes(m))).map(m => x.s.m[m] || {}));
   const sm = cells.filter(c => c.target > 0), cv = cells.filter(c => c.wiT > 0 && c.cvT > 0 && c.wi > 0);
   const sales = sum(sm, c => c.netI), target = sum(sm, c => c.target);
   const wi = sum(cv, c => c.wi), bills = sum(cv, c => c.cBills), conv = div(bills, wi), convT = div(sum(cv, c => c.wiT * c.cvT), sum(cv, c => c.wiT));
   return { sales, target, ach: div(sales, target), wi, bills, conv, convT, convAch: conv != null && convT ? conv / convT : null };
 }
 // attrition; with a handover month only exits on or after that month count (headcount is still the H1 opening/closing average)
-const attr = (g, from) => { const a = g.map(x => x.i).filter(i => i.left != null); const open = sum(a, i => i.open), join = sum(a, i => i.joiners), close = sum(a, i => i.close); const exits = from ? sum(a, i => (i.exits || []).filter(e => e.left >= from + '-01').length) : sum(a, i => i.left); return { open, join, exits, close, pct: div(exits, (open + close) / 2) }; };
+// attrition; only exits in the months the manager ran the store count (headcount stays the H1 opening/closing average)
+const attr = g => { const a = g.filter(x => x.i.left != null); const open = sum(a, x => x.i.open), join = sum(a, x => x.i.joiners), close = sum(a, x => x.i.close); const exits = sum(a, x => x.ms ? (x.i.exits || []).filter(e => x.ms.includes(e.left.slice(0, 7))).length : x.i.left); return { open, join, exits, close, pct: div(exits, (open + close) / 2) }; };
 const OPS_M = M.filter(m => stores.some(x => (x.i.scores || []).some(z => z.m === m)));
-const score = (x, m) => ((x.i.scores || []).find(z => z.m === m) || {}).v;
+const score = (x, m) => (!x.ms || x.ms.includes(m)) ? ((x.i.scores || []).find(z => z.m === m) || {}).v : undefined;
 // shrinkage: each quarter's audits rated on their own, then the quarter ratings averaged
 const QS = ['Q1', 'Q2'];
+// a stock audit counts for whoever ran the store in the audit month
 function shrinkOf(x, qs = QS) {
-  const q = qs.map(n => { const a = (x.i.audits || []).filter(z => z.q === n); if (!a.length) return null; const sale = sum(a, z => z.sale), value = sum(a, z => z.value), pct = sale ? Math.max(0, -value) / sale * 100 : null; return { sale, value, pct, rt: rateShrink(pct) }; });
+  const q = qs.map(n => { const a = (x.i.audits || []).filter(z => z.q === n && (!x.ms || x.ms.includes(z.date.slice(0, 7)))); if (!a.length) return null; const sale = sum(a, z => z.sale), value = sum(a, z => z.value), pct = sale ? Math.max(0, -value) / sale * 100 : null; return { sale, value, pct, rt: rateShrink(pct) }; });
   const r = q.filter(z => z && z.rt != null).map(z => z.rt);
   return { q, rt: r.length ? +(r.reduce((a, b) => a + b, 0) / r.length).toFixed(2) : null };
 }
@@ -61,7 +63,7 @@ const SAL = (() => {
 const SAL_TARGET = 0.10;
 function salary(g, months) {
   let sal = 0, sale = 0;
-  for (const x of g) months.forEach(m => { const v = (SAL[x.k] || [])[M.indexOf(m)], s = (x.s.m[m] || {}).sales || 0; if (v != null && s > 0) { sal += v * s; sale += s; } });
+  for (const x of g) months.filter(m => (!x.ms || x.ms.includes(m))).forEach(m => { const v = (SAL[x.k] || [])[M.indexOf(m)], s = (x.s.m[m] || {}).sales || 0; if (v != null && s > 0) { sal += v * s; sale += s; } });
   const ratio = div(sal, sale);
   return { sal, sale, ratio, ach: ratio ? SAL_TARGET / ratio : null };
 }
@@ -101,7 +103,7 @@ function convSheetCM(l, no) {
   rows.push(['Stores with a target', ...c.byMonth.flatMap(z => ['', '', z.n]), '', c.n]);
   table(sh, ['Store', ...l.M.flatMap(m => [ML(m) + ' conv.', ML(m) + ' target', ML(m) + ' ach %']), 'Months achieved', 'Months counted'], rows, [rows.length - 2, rows.length - 1]);
   sh.aoa.push([c.n ? `Rating: ${c.ok} of ${c.n} store-months achieved = ${c.pct.toFixed(0)}% → rating ${rateStores(c.pct)}` : "Rating: no conversion target for these months"], ["Scale (share achieved): below 50% = 1, 50–64% = 2, 65–80% = 3, above 80% = 4. Achieved = conversion above 90% of the month's target (store rating 3 or better)."]);
-  sh.pctRows = { cols: l.M.flatMap((_, i) => [1 + i * 3, 2 + i * 3, 3 + i * 3]), upto: rows.length - 1, f: '0.0%' }; sh.pct = []; sh.num = [];
+  sh.pctRows = { cols: l.M.flatMap((_, i) => [1 + i * 3, 2 + i * 3, 3 + i * 3]), upto: rows.length - 2, f: '0.0%' }; sh.pct = []; sh.num = [];
   sh.mark = { cols: l.M.map((_, i) => 4 + i * 3), rows: rows.length - 2 };   // ach % cells shaded green when above 90%
   return sh;
 }
@@ -152,8 +154,8 @@ function salarySheet(l, no) {
   return sh;
 }
 function attrSheet(l, no) {
-  const sh = sheet(`${no} Attrition`, `${no}. Team Development (Attrition): ${l.title}`, l.from ? `Attrition % = exits from ${ML(l.from)} (handover) ÷ average H1 headcount (opening + closing) ÷ 2. From the Retail Attrition report.` : 'Attrition % = exits in H1 ÷ average headcount (opening + closing) ÷ 2. From the Retail Attrition report.');
-  const line = (lab, cm, g) => { const a = attr(g, l.from); return [lab, cm, a.open, a.join, a.exits, a.close, r4(a.pct)]; };
+  const sh = sheet(`${no} Attrition`, `${no}. Team Development (Attrition): ${l.title}`, l.from ? `Attrition % = exits in the months they ran each store (${l.lab}) ÷ average H1 headcount (opening + closing) ÷ 2. From the Retail Attrition report.` : 'Attrition % = exits in H1 ÷ average headcount (opening + closing) ÷ 2. From the Retail Attrition report.');
+  const line = (lab, cm, g) => { const a = attr(g); return [lab, cm, a.open, a.join, a.exits, a.close, r4(a.pct)]; };
   const rows = [], tot = [];
   for (const { cm, g } of groupsOf(l)) {
     sorted(g).filter(x => x.i.left != null).forEach(x => rows.push(line(tc(x.k), cm, [x])));
@@ -161,7 +163,7 @@ function attrSheet(l, no) {
   }
   tot.push(rows.length); rows.push(line(l.level === 'RM' ? 'REGION TOTAL' : 'CLUSTER TOTAL', '', l.g));
   table(sh, ['Store', 'Cluster Manager', 'Opening headcount', 'Joiners', 'Exits', 'Closing headcount', 'Attrition %'], rows, tot);
-  const a = attr(l.g, l.from);
+  const a = attr(l.g);
   sh.aoa.push([`Rating: ${a.exits} exits ÷ average headcount ${((a.open + a.close) / 2).toFixed(1)} = ${P(a.pct)} → rating ${rateAttr(a.pct * 100)}`], ['Scale: above 40% = 0, 30–40% = 1, 25–30% = 2, 20–25% = 3, below 20% = 4. Promotion % is not available, so attrition alone is used.']);
   sh.pct = [6]; sh.num = [];
   return sh;
@@ -187,14 +189,14 @@ function shrinkSheet(l, no) {
 
 // ---- ratings ----
 function rate(l) {
-  const h = roll(l.g, l.M), a = attr(l.g, l.from), ap = a.pct == null ? null : a.pct * 100, R = { h, a };
+  const h = roll(l.g, l.M), a = attr(l.g), ap = a.pct == null ? null : a.pct * 100, R = { h, a };
   const share = f => { const r = l.g.map(f).filter(v => v != null); return r.length ? { ok: r.filter(v => v >= 3).length, n: r.length, pct: r.filter(v => v >= 3).length / r.length * 100 } : null; };
   { const cb = l.M.map(m => { const v = l.g.map(x => roll([x], [m]).convAch).filter(z => z != null); return { ok: v.filter(z => z > 0.9).length, n: v.length }; }); R.conv = { byMonth: cb, ok: sum(cb, z => z.ok), n: sum(cb, z => z.n) }; R.conv.pct = R.conv.n ? R.conv.ok / R.conv.n * 100 : null; }
   { const qs = l.QS.map((n, i) => { const v = l.g.filter(x => !SHRINK_EXEMPT.includes(x.k)).map(x => shrinkOf(x, l.QS).q[i]).filter(q => q && q.rt != null); return { q: n, ok: v.filter(q => q.rt >= 3).length, n: v.length }; }), ok = sum(qs, z => z.ok), n = sum(qs, z => z.n); R.shrinkShare = n ? { qs, ok, n, pct: ok / n * 100 } : null; }
   const bm = l.OPS.map(m => { const v = l.g.map(x => score(x, m)).filter(z => z != null); return { ok: v.filter(z => z >= 90).length, n: v.length }; });
   R.ops = { byMonth: bm, ok: sum(bm, z => z.ok), n: sum(bm, z => z.n) }; R.ops.pct = R.ops.n ? R.ops.ok / R.ops.n * 100 : null;
   const sales = { remark: `${l.g.length} stores. ${L(h.sales)} of ${L(h.target)} (excl. e-commerce)${l.from ? ", " + l.lab : ""}`, ach: P(h.ach), r: h.ach == null ? null : rateAch(h.ach * 100) };
-  const team = { remark: `${a.exits} exits${l.from ? " from " + ML(l.from) : ""}, opening ${a.open}, closing ${a.close}. Promotion % not available.`, ach: a.pct == null ? 'No data' : 'Attrition ' + P(a.pct), r: rateAttr(ap) };
+  const team = { remark: `${a.exits} exits${l.from ? " in the months they ran each store" : ""}, opening ${a.open}, closing ${a.close}. Promotion % not available.`, ach: a.pct == null ? 'No data' : 'Attrition ' + P(a.pct), r: rateAttr(ap) };
   if (l.level === 'RM') R.rows = {
     10: sales,
     11: { remark: `Conversion ${P(h.conv)} vs target ${P(h.convT)}. UPT targets not available.`, ach: P(h.convAch), r: rateAch(h.convAch * 100) },
@@ -211,10 +213,28 @@ function rate(l) {
 }
 
 const RM_FROM = { 'M Karthick': '2026-07' };   // became RM in July
-const FROM = { 'Jayanth': '2026-07', 'Syed Shabaz': '2026-07', 'Jayesh Kashyap': '2026-07', 'Sushanth': '2026-07' };
+const FROM = { 'Jayanth': '2026-07', 'Syed Shabaz': '2026-07', 'Jayesh Kashyap': '2026-07', 'Sushanth': '2026-07', 'Jyothi': '2026-08' };
+// stores that changed cluster manager during H1 (override FROM for those stores); same table as CM_MOVES in index.html
+const MOVES = [
+  { re: /^(PUN|KPR) - /, cm: 'Jyothi', rm: 'Mr.X', from: '2026-04', to: '2026-07', lab: 'Pune & Kolhapur' },   // Jyothi ran Pune and Kolhapur till July
+  { re: /^(PUN|KPR) - /, cm: 'Sushanth', from: '2026-08', to: '2026-09', lab: 'Pune & Kolhapur' },          // Sushanth from August
+];
+const span = (a, b) => M.filter(m => m >= a && m <= b);
+function members(l) {
+  if (l.level === 'RM') { const f = RM_FROM[l.name]; return f ? l.g.map(x => ({ ...x, ms: M.filter(m => m >= f) })) : l.g; }
+  const mv = MOVES.filter(v => v.cm === l.name && (!v.rm || v.rm === l.rm));
+  const own = l.g.map(x => { const v = mv.find(z => z.re.test(x.k)); return v ? { ...x, ms: span(v.from, v.to), moved: v.lab } : FROM[l.name] ? { ...x, ms: M.filter(m => m >= FROM[l.name]) } : x; });
+  const extra = mv.flatMap(v => stores.filter(x => v.re.test(x.k) && !l.g.includes(x)).map(x => ({ ...x, cm: l.name, ms: span(v.from, v.to), moved: v.lab })));
+  return [...own, ...extra];
+}
 const quarterOf = m => 'Q' + Math.floor((+m.slice(5, 7) - 4) / 3 + 1);   // FY quarters: Apr–Jun = Q1, Jul–Sep = Q2
-const period = l => { const from = (l.level === 'CM' ? FROM : RM_FROM)[l.name] || null, ms = from ? M.filter(m => m >= from) : M;
-  return { from, M: ms, OPS: OPS_M.filter(m => ms.includes(m)), QS: QS.filter(q => ms.some(m => quarterOf(m) === q)), lab: from ? `${ML(ms[0])}–${ML(ms.at(-1))} 2026 (took over ${l.level === 'RM' ? 'the region' : 'the cluster'} in ${ML(from)})` : 'H1 (Apr–Sep 2026)' }; };
+const period = l => {
+  const monthsOf = xs => M.filter(m => xs.some(x => !x.ms || x.ms.includes(m))), ms = monthsOf(l.g), rng = xs => { const a = monthsOf(xs); return `${ML(a[0])}–${ML(a.at(-1))}`; };
+  const moved = l.g.filter(x => x.moved), rest = l.g.filter(x => !x.moved), from = l.g.some(x => x.ms) ? ms[0] : null;
+  const lab = !from ? 'H1 (Apr–Sep 2026)' : moved.length && rest.length ? `${moved[0].moved} ${rng(moved)}, other stores ${rng(rest)} 2026`
+    : `${rng(l.g)} 2026 (took over ${l.level === 'RM' ? 'the region' : 'the cluster'} in ${ML(from)})`;
+  return { from, M: ms, OPS: OPS_M.filter(m => ms.includes(m)), QS: QS.filter(q => ms.some(m => quarterOf(m) === q)), lab };
+};
 // rating changes made on the dashboard (node build/export-mgr-changes.js) become the Manager's Rating, with the reason
 const CHG = fs.existsSync(path.join(__dirname, 'out/mgr-changes.json')) ? JSON.parse(fs.readFileSync(path.join(__dirname, 'out/mgr-changes.json'))) : [];
 const ROW = { RM: { sales: 10, conv: 11, process: 12, salary: 13, team: 14 }, CM: { sales: 10, conv: 11, ops: 12, team: 13, shrink: 14 } };
@@ -224,7 +244,7 @@ for (const rm of rms) {
   const g = stores.filter(x => x.rm === rm);
   const levels = [{ level: 'RM', name: rm, g, title: `RM ${rm}` }, ...[...new Set(g.map(x => x.cm))].sort().map(cm => ({ level: 'CM', name: cm, rm, g: g.filter(x => x.cm === cm), title: `Cluster ${cm} (RM ${rm})` }))];
   for (const l of levels) {
-    Object.assign(l, period(l)); if (l.from) l.title += ` · rated ${l.lab}`;
+    l.g = members(l); Object.assign(l, period(l)); if (l.from) l.title += ` · rated ${l.lab}`;
     l.R = rate(l);
     for (const c of CHG.filter(c => c.level === l.level && c.name === l.name && (l.level === 'RM' || c.rm === l.rm))) {
       const row = l.R.rows[ROW[l.level][c.kpi]]; if (!row) continue;
