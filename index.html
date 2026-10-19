@@ -886,6 +886,7 @@ function mgrRoll(g, months) {
   return { sales, target, ach: target ? sales / target * 100 : null, wi, bills, conv, convT, convAch: conv != null && convT ? conv / convT * 100 : null };
 }
 // cluster managers who took over their cluster mid-year are rated from the handover month only
+const RM_FROM = { 'M Karthick': '2026-07' };   // became RM in July
 const CM_FROM = { 'Jayanth': '2026-07', 'Syed Shabaz': '2026-07', 'Jayesh Kashyap': '2026-07', 'Sushanth': '2026-07' };
 const fyQ = m => 'Q' + Math.floor((+m.slice(5, 7) - 4) / 3 + 1);   // Apr–Jun = Q1, Jul–Sep = Q2
 function mgrAttr(g, from) {
@@ -910,7 +911,7 @@ function mgrList() {
   return out.map(mgrRate);
 }
 function mgrRate(l) {
-  const from = l.level === 'CM' ? CM_FROM[l.name] : null, MS = from ? D.months.filter(m => m >= from) : D.months, since = from ? ` · rated ${mL(MS[0])}–${mL(MS.at(-1))} (handover ${mL(from)})` : '';
+  const from = (l.level === 'CM' ? CM_FROM : RM_FROM)[l.name] || null, MS = from ? D.months.filter(m => m >= from) : D.months, since = from ? ` · rated ${mL(MS[0])}–${mL(MS.at(-1))} (handover ${mL(from)})` : '';
   const H = mgrRoll(l.g, MS), A = mgrAttr(l.g, from), w = MGR_W[l.level], rows = [];
   const add = (k, basis, ach, r) => { const o = OVR[ovrKey(l.id, l.level, k)] || null; rows.push({ k, w: w[k], basis, ach, sys: r, r: o ? o.rating : r, ovr: o }); };
   add('sales', `${fmtL(H.sales)} of ${fmtL(H.target)} (excl. e-com)${since}`, fmtP(H.ach), rateAch(H.ach));

@@ -175,10 +175,11 @@ function rate(l) {
   return R;
 }
 
+const RM_FROM = { 'M Karthick': '2026-07' };   // became RM in July
 const FROM = { 'Jayanth': '2026-07', 'Syed Shabaz': '2026-07', 'Jayesh Kashyap': '2026-07', 'Sushanth': '2026-07' };
 const quarterOf = m => 'Q' + Math.floor((+m.slice(5, 7) - 4) / 3 + 1);   // FY quarters: Apr–Jun = Q1, Jul–Sep = Q2
-const period = l => { const from = l.level === 'CM' ? FROM[l.name] : null, ms = from ? M.filter(m => m >= from) : M;
-  return { from, M: ms, OPS: OPS_M.filter(m => ms.includes(m)), QS: QS.filter(q => ms.some(m => quarterOf(m) === q)), lab: from ? `${ML(ms[0])}–${ML(ms.at(-1))} 2026 (took over the cluster in ${ML(from)})` : 'H1 (Apr–Sep 2026)' }; };
+const period = l => { const from = (l.level === 'CM' ? FROM : RM_FROM)[l.name] || null, ms = from ? M.filter(m => m >= from) : M;
+  return { from, M: ms, OPS: OPS_M.filter(m => ms.includes(m)), QS: QS.filter(q => ms.some(m => quarterOf(m) === q)), lab: from ? `${ML(ms[0])}–${ML(ms.at(-1))} 2026 (took over ${l.level === 'RM' ? 'the region' : 'the cluster'} in ${ML(from)})` : 'H1 (Apr–Sep 2026)' }; };
 // rating changes made on the dashboard (node build/export-mgr-changes.js) become the Manager's Rating, with the reason
 const CHG = fs.existsSync(path.join(__dirname, 'out/mgr-changes.json')) ? JSON.parse(fs.readFileSync(path.join(__dirname, 'out/mgr-changes.json'))) : [];
 const ROW = { RM: { sales: 10, conv: 11, process: 12, salary: 13, team: 14 }, CM: { sales: 10, conv: 11, ops: 12, team: 13, shrink: 14 } };
